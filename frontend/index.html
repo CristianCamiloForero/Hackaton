@@ -3,198 +3,924 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Simulación Robot — Frontend</title>
+  <title>Simulador Robot de Almacén</title>
   <style>
-    :root{--brown:#7a4b2a;--brown-strong:#5a361e;--muted:#f5f3f1}
-    body{font-family:Inter,Arial,Helvetica,sans-serif;background:var(--muted);margin:0;padding:0}
-    header{background:var(--brown);color:#fff;padding:18px 24px}
-    .container{max-width:980px;margin:24px auto;background:#fff;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);overflow:hidden}
-    .content{padding:20px}
-    h1{margin:0;font-size:20px}
-    label{display:block;font-weight:600;margin-top:12px}
-    textarea,input{width:100%;padding:10px;border-radius:6px;border:1px solid #e6e1de;margin-top:6px;font-size:14px}
-    .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-    .actions{display:flex;gap:12px;align-items:center;margin-top:14px}
-    button.primary{background:var(--brown);color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer}
-    button.ghost{background:transparent;border:1px solid var(--brown);color:var(--brown);padding:8px 12px;border-radius:8px;cursor:pointer}
-    .result{background:#faf9f8;border-radius:6px;padding:12px;margin-top:16px;border:1px solid #efeae6}
-    table{width:100%;border-collapse:collapse;margin-top:10px}
-    th,td{padding:6px 8px;border-bottom:1px solid #eee;text-align:left;font-size:13px}
-    .export-btn{display:inline-flex;gap:8px;align-items:center}
-    .note{font-size:13px;color:#666;margin-top:8px}
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1e40af;
+      --primary-light: #eff6ff;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      padding: 20px;
+      color: var(--gray-800);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      padding: 60px 20px 40px;
+      color: var(--primary);
+      animation: fadeIn 0.6s ease-out;
+    }
+
+    .hero h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      margin-bottom: 16px;
+      color: var(--primary-dark);
+    }
+
+    .hero p {
+      font-size: 1.25rem;
+      color: var(--gray-600);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .hero-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 20px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    /* Main Card */
+    .main-card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      animation: slideUp 0.6s ease-out;
+    }
+
+    /* CTA Section */
+    .cta-section {
+      padding: 60px 40px;
+      text-align: center;
+      background: white;
+    }
+
+    .cta-section h2 {
+      font-size: 2rem;
+      color: var(--gray-800);
+      margin-bottom: 12px;
+    }
+
+    .cta-section p {
+      color: var(--gray-600);
+      font-size: 1.1rem;
+      margin-bottom: 32px;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 16px 48px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.25);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px 0 rgba(37, 99, 235, 0.35);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    /* Form Section */
+    .form-section {
+      display: none;
+      padding: 40px;
+      border-top: 2px solid var(--gray-100);
+      background: var(--gray-50);
+      animation: expandDown 0.4s ease-out;
+    }
+
+    .form-section.active {
+      display: block;
+    }
+
+    .form-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+    }
+
+    .form-header h3 {
+      font-size: 1.5rem;
+      color: var(--gray-800);
+    }
+
+    .btn-secondary {
+      background: white;
+      color: var(--primary);
+      border: 2px solid var(--primary);
+      padding: 10px 20px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-secondary:hover {
+      background: var(--primary-light);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group.full-width {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+    }
+
+    .label-description {
+      font-weight: 400;
+      color: var(--gray-500);
+      font-size: 0.85rem;
+      margin-top: 2px;
+    }
+
+    input[type="number"],
+    textarea {
+      padding: 12px 16px;
+      border: 2px solid var(--gray-200);
+      border-radius: 10px;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+      font-family: 'Inter', sans-serif;
+    }
+
+    input[type="number"]:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-light);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 120px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .input-icon {
+      position: relative;
+    }
+
+    .input-icon input {
+      padding-left: 40px;
+    }
+
+    .input-icon::before {
+      content: attr(data-icon);
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--gray-400);
+      font-size: 1.2rem;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      padding-top: 24px;
+      border-top: 1px solid var(--gray-200);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.25);
+    }
+
+    .btn-success:hover {
+      background: #059669;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px 0 rgba(16, 185, 129, 0.35);
+    }
+
+    .btn-export {
+      background: var(--warning);
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-export:hover:not(:disabled) {
+      background: #d97706;
+      transform: translateY(-2px);
+    }
+
+    .btn-export:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Results Section */
+    .results-section {
+      display: none;
+      padding: 40px;
+      background: white;
+      border-top: 2px solid var(--gray-100);
+    }
+
+    .results-section.active {
+      display: block;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    .result-card {
+      background: var(--primary-light);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      border: 2px solid #bfdbfe;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .result-icon {
+      width: 32px;
+      height: 32px;
+    }
+
+    .result-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--gray-800);
+    }
+
+    .result-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .stat-item {
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--gray-600);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .table-container {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      overflow-x: auto;
+    }
+
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .table-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--gray-800);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      background: var(--gray-100);
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--gray-700);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--gray-200);
+      font-size: 0.95rem;
+    }
+
+    tr:hover {
+      background: var(--gray-50);
+    }
+
+    /* Loading State */
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes expandDown {
+      from {
+        opacity: 0;
+        max-height: 0;
+      }
+      to {
+        opacity: 1;
+        max-height: 2000px;
+      }
+    }
+
+    @keyframes float {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-10px);
+      }
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero h1 {
+        font-size: 2rem;
+      }
+
+      .hero p {
+        font-size: 1rem;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .cta-section,
+      .form-section,
+      .results-section {
+        padding: 30px 20px;
+      }
+
+      .result-stats {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Notification */
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: var(--shadow-lg);
+      display: none;
+      align-items: center;
+      gap: 12px;
+      z-index: 1000;
+      animation: slideInRight 0.3s ease-out;
+    }
+
+    .notification.show {
+      display: flex;
+    }
+
+    .notification.error {
+      border-left: 4px solid var(--danger);
+    }
+
+    .notification.success {
+      border-left: 4px solid var(--success);
+    }
+
+    @keyframes slideInRight {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
   </style>
 </head>
 <body>
-  <header>
-    <div class="container" style="background:transparent;padding:0">
-      <div style="padding:0 20px"><h1>Simulación Robot de Almacén</h1></div>
-    </div>
-  </header>
-
   <div class="container">
-    <div class="content">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <strong>Parámetros de simulación</strong>
-        <button id="loadDefaults" class="ghost">Cargar valores por defecto</button>
-      </div>
+    <!-- Hero Section -->
+    <div class="hero">
+      <svg class="hero-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="5" y="4" width="14" height="16" rx="2" stroke="#2563eb" stroke-width="2"/>
+        <circle cx="12" cy="9" r="2" fill="#2563eb"/>
+        <path d="M9 14h6M9 17h4" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/>
+        <path d="M5 6L3 8v8l2 2M19 6l2 2v8l-2 2" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <h1>Simulador Robot de Almacén</h1>
+      <p>Optimiza la recolección de paquetes con algoritmos inteligentes</p>
+    </div>
 
-      <label>Paquetes (una ubicación por línea: <code>fila,col</code>)</label>
-      <textarea id="paquetes" rows="5" placeholder="Ingresa la ubicacion de los paquetes"></textarea>
-
-      <div class="grid">
-        <div>
-          <label>Inicio - Fila</label>
-          <input id="inicio_fila" type="number" value="0" min="0" />
-        </div>
-        <div>
-          <label>Inicio - Columna</label>
-          <input id="inicio_col" type="number" value="0" min="0" />
-        </div>
-        <div>
-          <label>Costo por celda</label>
-          <input id="costo_celda" type="number" step="0.1" value="2.7" />
-        </div>
-      </div>
-
-      <div class="grid">
-        <div>
-          <label>Costo por pasillo</label>
-          <input id="costo_pasillo" type="number" step="0.1" value="5.0" />
-        </div>
-        <div></div>
-        <div></div>
-      </div>
-
-      <div class="actions">
-        <button id="run" class="primary">Simular</button>
-        <button id="export" class="primary" disabled title="Exportar reporte como Excel">
-          <span style="display:inline-flex;align-items:center">
-            <!-- simple download SVG -->
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-              <path d="M12 3v12" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M8 11l4 4 4-4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M21 21H3" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-          <span style="margin-left:8px">Exportar</span>
+    <!-- Main Card -->
+    <div class="main-card">
+      <!-- CTA Section -->
+      <div class="cta-section" id="ctaSection">
+        <h2>Simula tu Recolección</h2>
+        <p>Configura los parámetros del almacén y descubre la ruta óptima para tu robot recolector</p>
+        <button id="startBtn" class="btn-primary">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" fill="currentColor"/>
+          </svg>
+          Iniciar Simulación
         </button>
       </div>
 
-      <div id="output" class="result">
-        <div id="summary">No hay simulación ejecutada.</div>
-        <div id="tableArea"></div>
+      <!-- Form Section -->
+      <div class="form-section" id="formSection">
+        <div class="form-header">
+          <h3>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+              <circle cx="12" cy="12" r="9" stroke="#2563eb" stroke-width="2"/>
+              <path d="M12 6v6l4 2" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Configuración de Parámetros
+          </h3>
+          <button id="loadDefaultsBtn" class="btn-secondary">Cargar Valores por Defecto</button>
+        </div>
+
+        <form id="simulationForm">
+          <div class="form-grid">
+            <div class="form-group full-width">
+              <label>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; vertical-align: middle; margin-right: 6px;">
+                  <rect x="3" y="3" width="7" height="7" rx="1" stroke="#2563eb" stroke-width="2"/>
+                  <rect x="14" y="3" width="7" height="7" rx="1" stroke="#2563eb" stroke-width="2"/>
+                  <rect x="3" y="14" width="7" height="7" rx="1" stroke="#2563eb" stroke-width="2"/>
+                  <rect x="14" y="14" width="7" height="7" rx="1" stroke="#2563eb" stroke-width="2"/>
+                </svg>
+                Ubicaciones de Paquetes
+                <div class="label-description">Ingresa las coordenadas de cada paquete (una por línea: fila,columna)</div>
+              </label>
+              <textarea id="paquetes" placeholder="Ejemplo:&#10;2,0&#10;6,3&#10;0,5&#10;3,6"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; vertical-align: middle; margin-right: 6px;">
+                  <circle cx="12" cy="12" r="9" stroke="#2563eb" stroke-width="2"/>
+                  <path d="M12 6v6h6" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Costo por Celda Normal
+                <div class="label-description">Costo de movimiento en celdas estándar</div>
+              </label>
+              <input id="costo_celda" type="number" step="0.1" value="2.7" min="0" />
+            </div>
+
+            <div class="form-group">
+              <label>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; vertical-align: middle; margin-right: 6px;">
+                  <path d="M3 12h18M3 6h18M3 18h18" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Costo por Pasillo
+                <div class="label-description">Costo de movimiento en pasillos</div>
+              </label>
+              <input id="costo_pasillo" type="number" step="0.1" value="5.0" min="0" />
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" id="cancelBtn" class="btn-secondary">Cancelar</button>
+            <button type="submit" id="runBtn" class="btn-success">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5 3l14 9-14 9V3z" fill="currentColor"/>
+              </svg>
+              Ejecutar Simulación
+            </button>
+          </div>
+        </form>
       </div>
 
-      <div class="note">Nota: ingresa ubicaciones válidas según la grilla del almacén. Usa el botón "Cargar valores por defecto" para popular los campos.</div>
+      <!-- Results Section -->
+      <div class="results-section" id="resultsSection">
+        <div class="result-card">
+          <div class="result-header">
+            <svg class="result-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10" fill="#10b981"/>
+              <path d="M8 12l2 2 4-4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="result-title">Resultados de la Simulación</span>
+          </div>
+          <div class="result-stats" id="resultStats"></div>
+        </div>
+
+        <div class="table-container">
+          <div class="table-header">
+            <span class="table-title">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+                <rect x="3" y="3" width="18" height="18" rx="2" stroke="#2563eb" stroke-width="2"/>
+                <path d="M3 9h18M9 3v18" stroke="#2563eb" stroke-width="2"/>
+              </svg>
+              Detalle de Movimientos
+            </span>
+            <button id="exportBtn" class="btn-export" disabled>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 3v12m0 0l-4-4m4 4l4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M3 17v2a2 2 0 002 2h14a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Exportar a Excel
+            </button>
+          </div>
+          <div id="tableArea"></div>
+        </div>
+      </div>
     </div>
+  </div>
+
+  <!-- Notification -->
+  <div class="notification" id="notification">
+    <svg id="notificationIcon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="10" fill="#10b981"/>
+      <path d="M8 12l2 2 4-4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span id="notificationText"></span>
   </div>
 
   <script>
     const apiBase = 'http://127.0.0.1:5000';
+    
+    // Elements
+    const startBtn = document.getElementById('startBtn');
+    const ctaSection = document.getElementById('ctaSection');
+    const formSection = document.getElementById('formSection');
+    const resultsSection = document.getElementById('resultsSection');
+    const simulationForm = document.getElementById('simulationForm');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const loadDefaultsBtn = document.getElementById('loadDefaultsBtn');
+    const runBtn = document.getElementById('runBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const notification = document.getElementById('notification');
+    const notificationIcon = document.getElementById('notificationIcon');
+    const notificationText = document.getElementById('notificationText');
+    
+    // Form inputs
     const paquetesEl = document.getElementById('paquetes');
-    const inicioFilaEl = document.getElementById('inicio_fila');
-    const inicioColEl = document.getElementById('inicio_col');
     const costoCeldaEl = document.getElementById('costo_celda');
     const costoPasilloEl = document.getElementById('costo_pasillo');
-    const runBtn = document.getElementById('run');
-    const exportBtn = document.getElementById('export');
-    const loadDefaultsBtn = document.getElementById('loadDefaults');
-    const summaryEl = document.getElementById('summary');
+    
+    // Results
+    const resultStats = document.getElementById('resultStats');
     const tableArea = document.getElementById('tableArea');
 
     let lastPayload = null;
 
+    // Show notification
+    function showNotification(message, type = 'success') {
+      notificationText.textContent = message;
+      
+      // Update icon based on type
+      if (type === 'error') {
+        notificationIcon.innerHTML = `
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" fill="#ef4444"/>
+            <path d="M8 8l8 8M16 8l-8 8" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        `;
+      } else {
+        notificationIcon.innerHTML = `
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" fill="#10b981"/>
+            <path d="M8 12l2 2 4-4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        `;
+      }
+      
+      notification.className = `notification ${type} show`;
+      
+      setTimeout(() => {
+        notification.classList.remove('show');
+      }, 4000);
+    }
+
+    // Toggle form
+    startBtn.addEventListener('click', () => {
+      ctaSection.style.display = 'none';
+      formSection.classList.add('active');
+      resultsSection.classList.remove('active');
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      formSection.classList.remove('active');
+      resultsSection.classList.remove('active');
+      ctaSection.style.display = 'block';
+    });
+
+    // Load defaults
     loadDefaultsBtn.addEventListener('click', async () => {
-      try{
+      try {
         const res = await fetch(apiBase + '/defaults');
         const data = await res.json();
-        paquetesEl.value = data.paquetes.map(p=>p.join(',')).join('\n');
-        inicioFilaEl.value = data.inicio[0];
-        inicioColEl.value = data.inicio[1];
+        paquetesEl.value = data.paquetes.map(p => p.join(',')).join('\n');
         costoCeldaEl.value = data.costo_celda;
         costoPasilloEl.value = data.costo_pasillo;
-      }catch(err){
-        summaryEl.textContent = 'Error conectando al backend: ' + err;
+        showNotification('Valores por defecto cargados correctamente');
+      } catch (err) {
+        showNotification('Error al cargar valores por defecto: ' + err, 'error');
       }
     });
 
-    function parsePaquetes(text){
-      const lines = text.split('\n').map(s=>s.trim()).filter(Boolean);
+    // Parse packages
+    function parsePaquetes(text) {
+      const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
       const out = [];
-      for(const line of lines){
-        const parts = line.split(/[,\s]+/).map(x=>x.trim());
-        if(parts.length<2) continue;
+      for (const line of lines) {
+        const parts = line.split(/[,\s]+/).map(x => x.trim());
+        if (parts.length < 2) continue;
         const f = parseInt(parts[0]);
         const c = parseInt(parts[1]);
-        if(!Number.isFinite(f) || !Number.isFinite(c)) continue;
-        out.push([f,c]);
+        if (!Number.isFinite(f) || !Number.isFinite(c)) continue;
+        out.push([f, c]);
       }
       return out;
     }
 
-    runBtn.addEventListener('click', async () => {
+    // Run simulation
+    simulationForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
       const paquetes = parsePaquetes(paquetesEl.value);
-      const inicio = [parseInt(inicioFilaEl.value||0), parseInt(inicioColEl.value||0)];
-      const payload = { paquetes: paquetes, inicio: inicio, costo_celda: parseFloat(costoCeldaEl.value||2.7), costo_pasillo: parseFloat(costoPasilloEl.value||5.0) };
+      
+      if (paquetes.length === 0) {
+        showNotification('Debes ingresar al menos un paquete', 'error');
+        return;
+      }
+
+      const payload = {
+        paquetes: paquetes,
+        inicio: [0, 0],
+        costo_celda: parseFloat(costoCeldaEl.value || 2.7),
+        costo_pasillo: parseFloat(costoPasilloEl.value || 5.0)
+      };
+      
       lastPayload = payload;
-      summaryEl.textContent = 'Ejecutando simulación...';
-      tableArea.innerHTML = '';
-      exportBtn.disabled = true;
-      try{
-        const res = await fetch(apiBase + '/simulate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      
+      // Show loading
+      const originalText = runBtn.innerHTML;
+      runBtn.innerHTML = `
+        <svg class="loading" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/>
+          <path d="M12 2a10 10 0 0110 10" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        Procesando...
+      `;
+      runBtn.disabled = true;
+      
+      try {
+        const res = await fetch(apiBase + '/simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
         const data = await res.json();
-        if(data.error){ summaryEl.textContent = 'Error: ' + (data.detail||data.error); return; }
-        const costTotal = data.total_cost !== undefined ? parseFloat(data.total_cost) : 0;
-        const posFinal = data.pos_final || [];
-        summaryEl.innerHTML = `<strong>Resultado:</strong> Costo total: <strong>${costTotal.toFixed(2)}</strong>; Posición final: (${posFinal.join(',')})`;
-        // render pasos if available
-        if(data.pasos && Array.isArray(data.pasos)){
-          const rows = data.pasos;
-          const tbl = document.createElement('table');
-          const thead = document.createElement('thead');
-          thead.innerHTML = '<tr><th>#</th><th>Fila</th><th>Col</th><th>Acción</th><th>Costo</th></tr>';
-          tbl.appendChild(thead);
-          const tbody = document.createElement('tbody');
-          rows.forEach((r,i)=>{
-            const tr = document.createElement('tr');
-            const celIndex = document.createElement('td'); celIndex.textContent = i+1;
-            const celF = document.createElement('td'); celF.textContent = r[0] ?? r.fila ?? '';
-            const celC = document.createElement('td'); celC.textContent = r[1] ?? r.col ?? '';
-            const celA = document.createElement('td'); celA.textContent = r.action ?? r[2] ?? '';
-            const celCost = document.createElement('td'); celCost.textContent = (r.cost !== undefined ? r.cost : r[3]) || '';
-            tr.appendChild(celIndex); tr.appendChild(celF); tr.appendChild(celC); tr.appendChild(celA); tr.appendChild(celCost);
-            tbody.appendChild(tr);
-          });
-          tbl.appendChild(tbody);
-          tableArea.appendChild(tbl);
-          exportBtn.disabled = false;
+        
+        if (data.error) {
+          showNotification('Error: ' + (data.detail || data.error), 'error');
+          return;
         }
-      }catch(err){
-        summaryEl.textContent = 'Error llamando al backend: ' + err;
+        
+        // Display results
+        displayResults(data);
+        
+        // Show results section
+        formSection.classList.remove('active');
+        resultsSection.classList.add('active');
+        exportBtn.disabled = false;
+        
+        showNotification('Simulación completada exitosamente');
+        
+      } catch (err) {
+        showNotification('Error al ejecutar la simulación: ' + err, 'error');
+      } finally {
+        runBtn.innerHTML = originalText;
+        runBtn.disabled = false;
       }
     });
 
+    // Display results
+    function displayResults(data) {
+      const costTotal = data.total_cost !== undefined ? parseFloat(data.total_cost) : 0;
+      const posFinal = data.pos_final || [0, 0];
+      const pasos = data.pasos || [];
+      
+      // Stats
+      resultStats.innerHTML = `
+        <div class="stat-item">
+          <div class="stat-label">Costo Total</div>
+          <div class="stat-value">${costTotal.toFixed(2)}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Movimientos</div>
+          <div class="stat-value">${pasos.length}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Posición Final</div>
+          <div class="stat-value">(${posFinal[0]}, ${posFinal[1]})</div>
+        </div>
+      `;
+      
+      // Table
+      if (pasos && pasos.length > 0) {
+        const headers = Object.keys(pasos[0]);
+        let tableHTML = '<table><thead><tr>';
+        headers.forEach(h => {
+          tableHTML += `<th>${h}</th>`;
+        });
+        tableHTML += '</tr></thead><tbody>';
+        
+        pasos.forEach(paso => {
+          tableHTML += '<tr>';
+          headers.forEach(h => {
+            tableHTML += `<td>${paso[h]}</td>`;
+          });
+          tableHTML += '</tr>';
+        });
+        
+        tableHTML += '</tbody></table>';
+        tableArea.innerHTML = tableHTML;
+      }
+    }
+
+    // Export to Excel
     exportBtn.addEventListener('click', async () => {
-      if(!lastPayload) return;
-      exportBtn.disabled = true; exportBtn.textContent = 'Preparando...';
-      try{
-        const res = await fetch(apiBase + '/export', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(lastPayload) });
+      if (!lastPayload) return;
+      
+      const originalText = exportBtn.innerHTML;
+      exportBtn.innerHTML = `
+        <svg class="loading" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/>
+          <path d="M12 2a10 10 0 0110 10" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        Generando...
+      `;
+      exportBtn.disabled = true;
+      
+      try {
+        const res = await fetch(apiBase + '/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(lastPayload)
+        });
+        
         const contentType = res.headers.get('content-type') || '';
-        if(contentType.includes('application/json')){
+        
+        if (contentType.includes('application/json')) {
           const err = await res.json();
-          alert('Error exportando: ' + (err.detail || err.error || JSON.stringify(err)));
-          exportBtn.disabled = false; exportBtn.textContent = 'Exportar';
+          showNotification('Error al exportar: ' + (err.detail || err.error), 'error');
           return;
         }
+        
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = 'reporte_recoleccion.xlsx';
-        document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-        exportBtn.disabled = false; exportBtn.textContent = 'Exportar';
-      }catch(err){
-        alert('Error exportando: ' + err);
-        exportBtn.disabled = false; exportBtn.textContent = 'Exportar';
+        a.href = url;
+        a.download = 'reporte_recoleccion.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        
+        showNotification('Archivo Excel descargado correctamente');
+        
+      } catch (err) {
+        showNotification('Error al exportar: ' + err, 'error');
+      } finally {
+        exportBtn.innerHTML = originalText;
+        exportBtn.disabled = false;
       }
     });
   </script>
