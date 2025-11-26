@@ -45,3 +45,34 @@ def simulate(payload: dict):
 if __name__ == '__main__':
     import uvicorn
     uvicorn.run(app, host='0.0.0.0', port=5000)
+
+
+@app.post('/export')
+def export_excel(payload: dict):
+    """Genera un Excel desde la simulación y lo devuelve como descarga
+    payload: mismos campos que /simulate
+    """
+    paquetes = payload.get('paquetes', PAQUETES)
+    inicio = GestorEntrada.validar_inicio(payload.get('inicio', INICIO))
+    costos = payload.get('costos', {})
+    costos_validos = GestorEntrada.validar_costos(costos) if costos else {'celda': payload.get('costo_celda', COSTO_CELDA), 'pasillo': payload.get('costo_pasillo', COSTO_PASILLO)}
+    paquetes_validos = GestorEntrada.validar_paquetes(paquetes)
+
+    robot = RobotAlmacen(paquetes=paquetes_validos, inicio=inicio, costo_celda=costos_validos['celda'], costo_pasillo=costos_validos['pasillo'])
+    resultado = robot.ejecutar_recoleccion()
+
+    # Intentar crear Excel en memoria
+    try:
+        import pandas as pd
+        from io import BytesIO
+        df = pd.DataFrame(robot.pasos)
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Pasos')
+        buffer.seek(0)
+        from fastapi.responses import StreamingResponse
+        headers = {'Content-Disposition': 'attachment; filename="reporte_recoleccion.xlsx"'}
+        return StreamingResponse(buffer, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers=headers)
+    except Exception as e:
+        # si falla, devolver error
+        return {'error': 'No se pudo generar Excel en el servidor', 'detail': str(e)}

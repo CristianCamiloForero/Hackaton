@@ -3,84 +3,198 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Frontend - Simulación Robot</title>
+  <title>Simulación Robot — Frontend</title>
   <style>
-    body{font-family:Arial,Helvetica,sans-serif;padding:20px}
-    textarea,input{width:100%;padding:8px;margin:6px 0}
-    .row{display:flex;gap:10px}
-    .col{flex:1}
-    pre{background:#f4f4f4;padding:10px;border-radius:4px}
+    :root{--brown:#7a4b2a;--brown-strong:#5a361e;--muted:#f5f3f1}
+    body{font-family:Inter,Arial,Helvetica,sans-serif;background:var(--muted);margin:0;padding:0}
+    header{background:var(--brown);color:#fff;padding:18px 24px}
+    .container{max-width:980px;margin:24px auto;background:#fff;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.06);overflow:hidden}
+    .content{padding:20px}
+    h1{margin:0;font-size:20px}
+    label{display:block;font-weight:600;margin-top:12px}
+    textarea,input{width:100%;padding:10px;border-radius:6px;border:1px solid #e6e1de;margin-top:6px;font-size:14px}
+    .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+    .actions{display:flex;gap:12px;align-items:center;margin-top:14px}
+    button.primary{background:var(--brown);color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer}
+    button.ghost{background:transparent;border:1px solid var(--brown);color:var(--brown);padding:8px 12px;border-radius:8px;cursor:pointer}
+    .result{background:#faf9f8;border-radius:6px;padding:12px;margin-top:16px;border:1px solid #efeae6}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:6px 8px;border-bottom:1px solid #eee;text-align:left;font-size:13px}
+    .export-btn{display:inline-flex;gap:8px;align-items:center}
+    .note{font-size:13px;color:#666;margin-top:8px}
   </style>
 </head>
 <body>
-  <h1>Simulación Robot - Frontend</h1>
-
-  <div>
-    <button id="loadDefaults">Cargar valores por defecto (2.7 y 5.0)</button>
-  </div>
-
-  <h3>Parámetros</h3>
-  <label>Paquetes (JSON array de [fila,col])</label>
-  <textarea id="paquetes" rows="4">[[2,0],[6,3],[0,5],[3,6],[4,8],[1,9],[6,11]]</textarea>
-
-  <div class="row">
-    <div class="col">
-      <label>Inicio (fila,col)</label>
-      <input id="inicio" value="0,0" />
+  <header>
+    <div class="container" style="background:transparent;padding:0">
+      <div style="padding:0 20px"><h1>Simulación Robot de Almacén</h1></div>
     </div>
-    <div class="col">
-      <label>Costo por celda</label>
-      <input id="costo_celda" value="2.7" />
-    </div>
-    <div class="col">
-      <label>Costo por pasillo</label>
-      <input id="costo_pasillo" value="5.0" />
+  </header>
+
+  <div class="container">
+    <div class="content">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>Parámetros de simulación</strong>
+        <button id="loadDefaults" class="ghost">Cargar valores por defecto</button>
+      </div>
+
+      <label>Paquetes (una ubicación por línea: <code>fila,col</code>)</label>
+      <textarea id="paquetes" rows="5" placeholder="Ingresa la ubicacion de los paquetes"></textarea>
+
+      <div class="grid">
+        <div>
+          <label>Inicio - Fila</label>
+          <input id="inicio_fila" type="number" value="0" min="0" />
+        </div>
+        <div>
+          <label>Inicio - Columna</label>
+          <input id="inicio_col" type="number" value="0" min="0" />
+        </div>
+        <div>
+          <label>Costo por celda</label>
+          <input id="costo_celda" type="number" step="0.1" value="2.7" />
+        </div>
+      </div>
+
+      <div class="grid">
+        <div>
+          <label>Costo por pasillo</label>
+          <input id="costo_pasillo" type="number" step="0.1" value="5.0" />
+        </div>
+        <div></div>
+        <div></div>
+      </div>
+
+      <div class="actions">
+        <button id="run" class="primary">Simular</button>
+        <button id="export" class="primary" disabled title="Exportar reporte como Excel">
+          <span style="display:inline-flex;align-items:center">
+            <!-- simple download SVG -->
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+              <path d="M12 3v12" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M8 11l4 4 4-4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M21 21H3" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span style="margin-left:8px">Exportar</span>
+        </button>
+      </div>
+
+      <div id="output" class="result">
+        <div id="summary">No hay simulación ejecutada.</div>
+        <div id="tableArea"></div>
+      </div>
+
+      <div class="note">Nota: ingresa ubicaciones válidas según la grilla del almacén. Usa el botón "Cargar valores por defecto" para popular los campos.</div>
     </div>
   </div>
-
-  <div style="margin-top:10px">
-    <button id="run">Ejecutar simulación (backend)</button>
-  </div>
-
-  <h3>Resultado</h3>
-  <pre id="resultado">Aquí aparecerá la respuesta del servidor</pre>
 
   <script>
-    const loadDefaultsBtn = document.getElementById('loadDefaults');
-    const runBtn = document.getElementById('run');
+    const apiBase = 'http://127.0.0.1:5000';
     const paquetesEl = document.getElementById('paquetes');
-    const inicioEl = document.getElementById('inicio');
+    const inicioFilaEl = document.getElementById('inicio_fila');
+    const inicioColEl = document.getElementById('inicio_col');
     const costoCeldaEl = document.getElementById('costo_celda');
     const costoPasilloEl = document.getElementById('costo_pasillo');
-    const resultadoEl = document.getElementById('resultado');
+    const runBtn = document.getElementById('run');
+    const exportBtn = document.getElementById('export');
+    const loadDefaultsBtn = document.getElementById('loadDefaults');
+    const summaryEl = document.getElementById('summary');
+    const tableArea = document.getElementById('tableArea');
+
+    let lastPayload = null;
 
     loadDefaultsBtn.addEventListener('click', async () => {
       try{
-        const res = await fetch('http://localhost:5000/defaults');
+        const res = await fetch(apiBase + '/defaults');
         const data = await res.json();
-        paquetesEl.value = JSON.stringify(data.paquetes);
-        inicioEl.value = data.inicio.join(',');
+        paquetesEl.value = data.paquetes.map(p=>p.join(',')).join('\n');
+        inicioFilaEl.value = data.inicio[0];
+        inicioColEl.value = data.inicio[1];
         costoCeldaEl.value = data.costo_celda;
         costoPasilloEl.value = data.costo_pasillo;
       }catch(err){
-        resultadoEl.textContent = 'Error conectando al backend: ' + err;
+        summaryEl.textContent = 'Error conectando al backend: ' + err;
       }
     });
 
-    runBtn.addEventListener('click', async () => {
-      let paquetes; try{ paquetes = JSON.parse(paquetesEl.value); } catch(e){ resultadoEl.textContent='Formato de paquetes inválido'; return }
-      const inicioParts = inicioEl.value.split(/[ ,]+/).map(x=>parseInt(x));
-      const payload = { paquetes: paquetes, inicio: inicioParts, costo_celda: parseFloat(costoCeldaEl.value), costo_pasillo: parseFloat(costoPasilloEl.value) };
+    function parsePaquetes(text){
+      const lines = text.split('\n').map(s=>s.trim()).filter(Boolean);
+      const out = [];
+      for(const line of lines){
+        const parts = line.split(/[,\s]+/).map(x=>x.trim());
+        if(parts.length<2) continue;
+        const f = parseInt(parts[0]);
+        const c = parseInt(parts[1]);
+        if(!Number.isFinite(f) || !Number.isFinite(c)) continue;
+        out.push([f,c]);
+      }
+      return out;
+    }
 
-      resultadoEl.textContent = 'Ejecutando...';
+    runBtn.addEventListener('click', async () => {
+      const paquetes = parsePaquetes(paquetesEl.value);
+      const inicio = [parseInt(inicioFilaEl.value||0), parseInt(inicioColEl.value||0)];
+      const payload = { paquetes: paquetes, inicio: inicio, costo_celda: parseFloat(costoCeldaEl.value||2.7), costo_pasillo: parseFloat(costoPasilloEl.value||5.0) };
+      lastPayload = payload;
+      summaryEl.textContent = 'Ejecutando simulación...';
+      tableArea.innerHTML = '';
+      exportBtn.disabled = true;
       try{
-        const res = await fetch('http://localhost:5000/simulate', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-        });
+        const res = await fetch(apiBase + '/simulate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
         const data = await res.json();
-        resultadoEl.textContent = JSON.stringify(data, null, 2);
+        if(data.error){ summaryEl.textContent = 'Error: ' + (data.detail||data.error); return; }
+        const costTotal = data.total_cost !== undefined ? parseFloat(data.total_cost) : 0;
+        const posFinal = data.pos_final || [];
+        summaryEl.innerHTML = `<strong>Resultado:</strong> Costo total: <strong>${costTotal.toFixed(2)}</strong>; Posición final: (${posFinal.join(',')})`;
+        // render pasos if available
+        if(data.pasos && Array.isArray(data.pasos)){
+          const rows = data.pasos;
+          const tbl = document.createElement('table');
+          const thead = document.createElement('thead');
+          thead.innerHTML = '<tr><th>#</th><th>Fila</th><th>Col</th><th>Acción</th><th>Costo</th></tr>';
+          tbl.appendChild(thead);
+          const tbody = document.createElement('tbody');
+          rows.forEach((r,i)=>{
+            const tr = document.createElement('tr');
+            const celIndex = document.createElement('td'); celIndex.textContent = i+1;
+            const celF = document.createElement('td'); celF.textContent = r[0] ?? r.fila ?? '';
+            const celC = document.createElement('td'); celC.textContent = r[1] ?? r.col ?? '';
+            const celA = document.createElement('td'); celA.textContent = r.action ?? r[2] ?? '';
+            const celCost = document.createElement('td'); celCost.textContent = (r.cost !== undefined ? r.cost : r[3]) || '';
+            tr.appendChild(celIndex); tr.appendChild(celF); tr.appendChild(celC); tr.appendChild(celA); tr.appendChild(celCost);
+            tbody.appendChild(tr);
+          });
+          tbl.appendChild(tbody);
+          tableArea.appendChild(tbl);
+          exportBtn.disabled = false;
+        }
       }catch(err){
-        resultadoEl.textContent = 'Error llamando al backend: ' + err;
+        summaryEl.textContent = 'Error llamando al backend: ' + err;
+      }
+    });
+
+    exportBtn.addEventListener('click', async () => {
+      if(!lastPayload) return;
+      exportBtn.disabled = true; exportBtn.textContent = 'Preparando...';
+      try{
+        const res = await fetch(apiBase + '/export', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(lastPayload) });
+        const contentType = res.headers.get('content-type') || '';
+        if(contentType.includes('application/json')){
+          const err = await res.json();
+          alert('Error exportando: ' + (err.detail || err.error || JSON.stringify(err)));
+          exportBtn.disabled = false; exportBtn.textContent = 'Exportar';
+          return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'reporte_recoleccion.xlsx';
+        document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        exportBtn.disabled = false; exportBtn.textContent = 'Exportar';
+      }catch(err){
+        alert('Error exportando: ' + err);
+        exportBtn.disabled = false; exportBtn.textContent = 'Exportar';
       }
     });
   </script>

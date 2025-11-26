@@ -117,8 +117,8 @@ class RobotAlmacen:
         for col in columnas_con_paquetes:
             self.procesar_columna(col)
         return {
-            'costo_total': round(self.costo_total, 2),
-            'posicion_final': [self.fila_actual, self.col_actual],
+            'total_cost': round(self.costo_total, 2),
+            'pos_final': [self.fila_actual, self.col_actual],
             'pasos': self.pasos,
             'ruta': self.ruta
         }
