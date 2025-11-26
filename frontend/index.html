@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Frontend - Simulación Robot</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;padding:20px}
+    textarea,input{width:100%;padding:8px;margin:6px 0}
+    .row{display:flex;gap:10px}
+    .col{flex:1}
+    pre{background:#f4f4f4;padding:10px;border-radius:4px}
+  </style>
+</head>
+<body>
+  <h1>Simulación Robot - Frontend</h1>
+
+  <div>
+    <button id="loadDefaults">Cargar valores por defecto (2.7 y 5.0)</button>
+  </div>
+
+  <h3>Parámetros</h3>
+  <label>Paquetes (JSON array de [fila,col])</label>
+  <textarea id="paquetes" rows="4">[[2,0],[6,3],[0,5],[3,6],[4,8],[1,9],[6,11]]</textarea>
+
+  <div class="row">
+    <div class="col">
+      <label>Inicio (fila,col)</label>
+      <input id="inicio" value="0,0" />
+    </div>
+    <div class="col">
+      <label>Costo por celda</label>
+      <input id="costo_celda" value="2.7" />
+    </div>
+    <div class="col">
+      <label>Costo por pasillo</label>
+      <input id="costo_pasillo" value="5.0" />
+    </div>
+  </div>
+
+  <div style="margin-top:10px">
+    <button id="run">Ejecutar simulación (backend)</button>
+  </div>
+
+  <h3>Resultado</h3>
+  <pre id="resultado">Aquí aparecerá la respuesta del servidor</pre>
+
+  <script>
+    const loadDefaultsBtn = document.getElementById('loadDefaults');
+    const runBtn = document.getElementById('run');
+    const paquetesEl = document.getElementById('paquetes');
+    const inicioEl = document.getElementById('inicio');
+    const costoCeldaEl = document.getElementById('costo_celda');
+    const costoPasilloEl = document.getElementById('costo_pasillo');
+    const resultadoEl = document.getElementById('resultado');
+
+    loadDefaultsBtn.addEventListener('click', async () => {
+      try{
+        const res = await fetch('http://localhost:5000/defaults');
+        const data = await res.json();
+        paquetesEl.value = JSON.stringify(data.paquetes);
+        inicioEl.value = data.inicio.join(',');
+        costoCeldaEl.value = data.costo_celda;
+        costoPasilloEl.value = data.costo_pasillo;
+      }catch(err){
+        resultadoEl.textContent = 'Error conectando al backend: ' + err;
+      }
+    });
+
+    runBtn.addEventListener('click', async () => {
+      let paquetes; try{ paquetes = JSON.parse(paquetesEl.value); } catch(e){ resultadoEl.textContent='Formato de paquetes inválido'; return }
+      const inicioParts = inicioEl.value.split(/[ ,]+/).map(x=>parseInt(x));
+      const payload = { paquetes: paquetes, inicio: inicioParts, costo_celda: parseFloat(costoCeldaEl.value), costo_pasillo: parseFloat(costoPasilloEl.value) };
+
+      resultadoEl.textContent = 'Ejecutando...';
+      try{
+        const res = await fetch('http://localhost:5000/simulate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        resultadoEl.textContent = JSON.stringify(data, null, 2);
+      }catch(err){
+        resultadoEl.textContent = 'Error llamando al backend: ' + err;
+      }
+    });
+  </script>
+</body>
+</html>
