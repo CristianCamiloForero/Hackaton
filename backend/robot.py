@@ -1,8 +1,9 @@
 from .config import FILAS, COLUMNAS, PASILLOS, PAQUETES, INICIO, COSTO_CELDA, COSTO_PASILLO
+from .optimizador import Optimizador
 
 
 class RobotAlmacen:
-    """Clase que representa un robot recolector de paquetes en un almacén (backend)"""
+    """Clase que representa un robot recolector de paquetes en un almacén (backend optimizado)"""
 
     def __init__(self, paquetes=None, inicio=None, costo_celda=None, costo_pasillo=None):
         if paquetes is None:
@@ -26,6 +27,9 @@ class RobotAlmacen:
         self.costo_total = 0
         self.pasos = []
         self.ruta = [(self.fila_actual, self.col_actual)]
+
+        # Inicializar optimizador
+        self.optimizador = Optimizador(costo_celda, costo_pasillo)
 
         self._inicializar_matriz()
         self._organizar_paquetes()
@@ -55,20 +59,27 @@ class RobotAlmacen:
         return col not in self.paquetes_por_columna
 
     def calcular_distancia(self, fila1, col1, fila2, col2):
+        """Calcula distancia y costo entre dos posiciones"""
         pasos_fila = abs(fila2 - fila1)
         costo = 0
         pasos_total = 0
+        
+        # Costo vertical
         costo += pasos_fila * self.costo_celda_valor
         pasos_total += pasos_fila
+        
+        # Costo horizontal
         for c in range(min(col1, col2), max(col1, col2)):
             if self.es_pasillo(c + 1):
                 costo += self.costo_pasillo_valor
             else:
                 costo += self.costo_celda_valor
             pasos_total += 1
+            
         return pasos_total, costo
 
     def mover_a(self, fila_dest, col_dest, descripcion):
+        """Registra movimiento del robot"""
         pasos, costo = self.calcular_distancia(self.fila_actual, self.col_actual, fila_dest, col_dest)
         self.costo_total += costo
         self.pasos.append({
@@ -85,44 +96,82 @@ class RobotAlmacen:
         self.col_actual = col_dest
         self.ruta.append((fila_dest, col_dest))
 
-    def procesar_columna(self, col):
+    def determinar_punto_entrada_salida(self, col, pos_actual):
+        """
+        Determina el mejor punto de entrada y salida de una columna.
+        Optimización: evalúa desde qué extremo es más eficiente entrar.
+        """
+        if self.columna_vacia(col):
+            return None, None
+        
+        paquetes_fila = self.paquetes_por_columna[col]
+        primer_paquete = paquetes_fila[0]
+        ultimo_paquete = paquetes_fila[-1]
+        
+        # Calcular costo de entrar por arriba
+        costo_arriba = abs(pos_actual - 0) + abs(0 - ultimo_paquete)
+        
+        # Calcular costo de entrar por abajo
+        costo_abajo = abs(pos_actual - (FILAS - 1)) + abs((FILAS - 1) - primer_paquete)
+        
+        if costo_arriba <= costo_abajo:
+            return 0, FILAS - 1  # Entrar por arriba, salir por abajo
+        else:
+            return FILAS - 1, 0  # Entrar por abajo, salir por arriba
+
+    def procesar_columna_optimizada(self, col):
+        """Procesa una columna con estrategia optimizada - SIN recorridos innecesarios"""
         if self.columna_vacia(col):
             return
+        
         paquetes_fila = self.paquetes_por_columna[col]
-        dist_desde_arriba = abs(self.fila_actual - 0) + abs(0 - paquetes_fila[0])
-        dist_desde_abajo = abs(self.fila_actual - (FILAS-1)) + abs((FILAS-1) - paquetes_fila[-1])
-        if dist_desde_arriba <= dist_desde_abajo:
-            punto_entrada = 0
-            punto_salida = FILAS - 1
-            sentido = "arriba-abajo"
-        else:
-            punto_entrada = FILAS - 1
-            punto_salida = 0
-            sentido = "abajo-arriba"
+        
+        # Moverse horizontalmente a la columna si es necesario
         if col != self.col_actual:
-            self.mover_a(self.fila_actual, col, f"Moverse horizontalmente a columna {col}")
-        if self.fila_actual != punto_entrada:
-            self.mover_a(punto_entrada, col, f"Entrar a columna {col} por {sentido}")
-        for idx, fila_paq in enumerate(paquetes_fila):
-            if self.fila_actual != fila_paq:
-                self.mover_a(fila_paq, col, f"Recoger paquete #{idx+1} en columna {col}")
-        if self.fila_actual != punto_salida:
-            self.mover_a(punto_salida, col, f"Completar recorrido de columna {col} hacia {sentido}")
+            self.mover_a(self.fila_actual, col, f"Moverse a columna {col}")
+        
+        # Estrategia simple y óptima: visitar paquetes en orden vertical
+        # Minimiza movimientos innecesarios
+        paquetes_ordenados = sorted(paquetes_fila)
+        
+        # Detectar si es mejor ir de arriba-abajo o abajo-arriba
+        if self.fila_actual <= paquetes_ordenados[0]:
+            # Robot está arriba o al inicio: recorrer de arriba-abajo
+            for idx, fila_paq in enumerate(paquetes_ordenados):
+                if self.fila_actual != fila_paq:
+                    self.mover_a(fila_paq, col, f"Recoger paquete {idx+1}")
+        else:
+            # Robot está abajo: recorrer de abajo-arriba
+            for idx, fila_paq in enumerate(reversed(paquetes_ordenados)):
+                if self.fila_actual != fila_paq:
+                    self.mover_a(fila_paq, col, f"Recoger paquete {idx+1}")
 
     def ejecutar_recoleccion(self):
-        # Mensajes mantenidos para compatibilidad
+        """
+        Ejecuta la recolección con optimización de ruta.
+        Usa el optimizador para determinar el mejor orden de columnas.
+        """
         self.pasos = []
         self.ruta = [(self.fila_actual, self.col_actual)]
-        columnas_con_paquetes = sorted(self.paquetes_por_columna.keys())
-        for col in columnas_con_paquetes:
-            self.procesar_columna(col)
+        
+        # Obtener orden optimizado de columnas
+        columnas_ordenadas = self.optimizador.optimizar_orden_columnas(
+            self.paquetes,
+            [self.fila_actual, self.col_actual]
+        )
+        
+        # Procesar cada columna en el orden optimizado
+        for col in columnas_ordenadas:
+            self.procesar_columna_optimizada(col)
+        
         return {
             'total_cost': round(self.costo_total, 2),
             'pos_final': [self.fila_actual, self.col_actual],
             'pasos': self.pasos,
-            'ruta': self.ruta
+            'ruta': self.ruta,
+            'orden_columnas': columnas_ordenadas
         }
 
     def generar_tabla_pasos(self):
-        # devuelve lista de pasos (sin pandas)
+        """Devuelve lista de pasos (sin pandas)"""
         return self.pasos

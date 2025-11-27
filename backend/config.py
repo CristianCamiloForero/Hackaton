@@ -1,9 +1,11 @@
 # Configuración inicial del almacén (módulo backend)
-FILAS = 9
-COLUMNAS = 12
-PASILLOS = [1, 4, 7, 10]
+# Nota: fila = coordenada vertical (Y), columna = coordenada horizontal (X)
+FILAS = 9  # Rango: 0-8 (filas verticales)
+COLUMNAS = 12  # Rango: 0-11 (columnas horizontales)
+PASILLOS = [1, 4, 7, 10]  # Columnas con costo de pasillo
 PAQUETES = [[2,0], [6,3], [0,5], [3,6], [4,8], [1,9], [6,11]]
-INICIO = [0, 0]  # [fila, col]
+INICIO = [0, 0]  # [fila_vertical, columna_horizontal]
+FINAL = [8, 11]  # [fila_vertical, columna_horizontal] - punto de entrega
 COSTO_CELDA = 2.7
 COSTO_PASILLO = 5.0
 
