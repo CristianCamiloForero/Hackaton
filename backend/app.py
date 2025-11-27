@@ -1,8 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .robot import RobotAlmacen
-from .config import PAQUETES, INICIO, COSTO_CELDA, COSTO_PASILLO
+from .config import PAQUETES, INICIO, COSTO_CELDA, COSTO_PASILLO, PASILLOS, FILAS, COLUMNAS, ALMACENES
 from .entrada import GestorEntrada
+from .consolidador import ConsolidadorPicking
+from .conteo_ciclico import ConteoCiclico
+from .exportador import Exportador
+import io
+from fastapi.responses import StreamingResponse
 
 app = FastAPI()
 
@@ -40,6 +45,103 @@ def simulate(payload: dict):
 
     # devolver resultado
     return resultado
+
+
+@app.post('/consolidate')
+def consolidate_orders(payload: dict):
+    """Consolida múltiples órdenes en una lista de picking optimizada.
+    
+    payload: {
+        'ordenes': [
+            {'id_orden': 'ORD001', 'items': [[fila, col, cantidad, sku], ...]},
+            {'id_orden': 'ORD002', 'items': [[fila, col, cantidad, sku], ...]},
+            ...
+        ]
+    }
+    """
+    ordenes = payload.get('ordenes', [])
+    
+    if not ordenes:
+        return {'error': 'No hay órdenes para consolidar'}
+    
+    consolidador = ConsolidadorPicking()
+    resultado = consolidador.consolidar_ordenes(ordenes)
+    
+    return resultado
+
+
+@app.get('/warehouse-config')
+def get_warehouse_config():
+    """Retorna configuración del almacén (incluyendo almacenes/zonas)"""
+    return {
+        'filas': FILAS,
+        'columnas': COLUMNAS,
+        'pasillos': PASILLOS,
+        'almacenes': ALMACENES,
+        'costo_celda': COSTO_CELDA,
+        'costo_pasillo': COSTO_PASILLO
+    }
+
+
+@app.post('/cycle-count')
+def cycle_count(payload: dict):
+    """Genera un plan de conteo cíclico priortizado.
+
+    Payload esperado:
+    {
+      "ubicaciones": [ {"fila": int, "col": int, "sku": str, "movimientos": int, "conteos_ultimos_365dias": int}, ... ],
+      "frecuencia_minima": 5  # opcional
+    }
+    """
+    data = payload or {}
+    ubicaciones = data.get('ubicaciones', [])
+    frecuencia = int(data.get('frecuencia_minima', 5))
+    # Heurísticas opcionales
+    weights = data.get('weights', None)  # {'faltantes':100, 'movimientos':1, 'criticidad':50}
+    zone_weights = data.get('zone_weights', None)  # {'Audio': 50, ...}
+
+    cc = ConteoCiclico(frecuencia_minima=frecuencia, weights=weights, zone_weights=zone_weights)
+    plan = cc.generar_plan(ubicaciones)
+    return plan
+
+
+@app.post('/export-cycle')
+def export_cycle(payload: dict):
+    """Exporta a Excel/CSV un `plan` (lista) o genera plan desde `ubicaciones` si se pasa.
+
+    Payload aceptado:
+      - plan: [...]
+    o
+      - ubicaciones + frecuencia_minima + weights + zone_weights
+    """
+    data = payload or {}
+    plan = data.get('plan')
+    if not plan:
+        # generar plan desde ubicaciones si vienen
+        ubicaciones = data.get('ubicaciones', [])
+        frecuencia = int(data.get('frecuencia_minima', 5))
+        weights = data.get('weights', None)
+        zone_weights = data.get('zone_weights', None)
+        cc = ConteoCiclico(frecuencia_minima=frecuencia, weights=weights, zone_weights=zone_weights)
+        plan = cc.generar_plan(ubicaciones).get('plan', [])
+
+    bytes_data = Exportador.export_cycle_plan_bytes(plan)
+
+    # Detectar si es CSV o Excel por contenido (naive): openpyxl produces XLSX binary with PK signature
+    filename = 'plan_conteo.xlsx'
+    media_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    try:
+        # If first bytes start with PK (zip), treat as xlsx
+        if isinstance(bytes_data, (bytes, bytearray)) and bytes_data[:2] != b'PK':
+            # likely CSV
+            filename = 'plan_conteo.csv'
+            media_type = 'text/csv'
+    except Exception:
+        pass
+
+    return StreamingResponse(io.BytesIO(bytes_data), media_type=media_type, headers={
+        'Content-Disposition': f'attachment; filename="{filename}"'
+    })
 
 
 if __name__ == '__main__':

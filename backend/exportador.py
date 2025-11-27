@@ -83,3 +83,51 @@ class Exportador:
                     f.write(fila + "\n")
             f.write("\n" + "=" * 70 + "\n")
         print("  - resumen_recoleccion.txt")
+
+    @staticmethod
+    def export_cycle_plan_bytes(plan):
+        """Genera un archivo Excel (bytes) a partir de un plan de conteo.
+
+        Si no está disponible `openpyxl`, cae a CSV (utf-8) y devuelve bytes.
+        """
+        import io
+        headers = ['SKU', 'Fila', 'Col', 'ConteosUlt365dias', 'Faltantes', 'Score', 'FechasPlanificadas']
+
+        # Intentar openpyxl
+        try:
+            from openpyxl import Workbook
+            wb = Workbook()
+            ws = wb.active
+            ws.title = 'Plan Conteo'
+            ws.append(headers)
+            for p in plan:
+                ws.append([
+                    p.get('sku'),
+                    p.get('fila'),
+                    p.get('col'),
+                    p.get('conteos_ultimos_365dias'),
+                    p.get('faltantes'),
+                    float(p.get('score') or 0),
+                    ', '.join(p.get('fechas_planificadas') or [])
+                ])
+            bio = io.BytesIO()
+            wb.save(bio)
+            bio.seek(0)
+            return bio.read()
+        except Exception:
+            # Fallback a CSV
+            import csv
+            sio = io.StringIO()
+            writer = csv.writer(sio)
+            writer.writerow(headers)
+            for p in plan:
+                writer.writerow([
+                    p.get('sku'),
+                    p.get('fila'),
+                    p.get('col'),
+                    p.get('conteos_ultimos_365dias'),
+                    p.get('faltantes'),
+                    p.get('score'),
+                    ';'.join(p.get('fechas_planificadas') or [])
+                ])
+            return sio.getvalue().encode('utf-8')

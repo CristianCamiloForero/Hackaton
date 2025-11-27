@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Pasillos CSS</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      padding: 20px;
+      background: #f0f4f8;
+    }
+    .test-section {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #2563eb;
+      margin-bottom: 10px;
+    }
+    .test-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 40px);
+      gap: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Test: Visualización de Pasillos</h1>
+  
+  <div class="test-section">
+    <h2>Celdas Individuales</h2>
+    <div class="test-grid">
+      <div class="grid-cell">Empty</div>
+      <div class="grid-cell pasillo">Pasillo</div>
+      <div class="grid-cell start">I</div>
+      <div class="grid-cell package">P</div>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>Grid Completo (12x9)</h2>
+    <div id="testGrid" style="display: grid; grid-template-columns: repeat(12, 40px); gap: 4px; justify-content: center;"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>Debug Info</h2>
+    <button onclick="debugTest()">Abrir Consola (F12) y ver debug</button>
+    <pre id="debugOutput"></pre>
+  </div>
+
+  <script>
+    const PASILLOS = [1, 4, 7, 10];
+    const FILAS = 9;
+    const COLUMNAS = 12;
+
+    // Llenar grid de prueba
+    function createTestGrid() {
+      const grid = document.getElementById('testGrid');
+      
+      for (let i = 0; i < FILAS; i++) {
+        for (let j = 0; j < COLUMNAS; j++) {
+          const cell = document.createElement('div');
+          const classes = ['grid-cell'];
+          
+          // Agregar clase pasillo
+          if (PASILLOS.includes(j)) {
+            classes.push('pasillo');
+          }
+          
+          // Casos especiales
+          if (i === 0 && j === 0) classes.push('start');
+          else if (i === 2 && j === 0) classes.push('package');
+          else if (i === 8 && j === 11) classes.push('end');
+          
+          cell.className = classes.join(' ');
+          cell.dataset.row = i;
+          cell.dataset.col = j;
+          cell.title = `(${i},${j})`;
+          
+          if (classes.includes('start')) cell.textContent = 'I';
+          else if (classes.includes('package')) cell.textContent = 'P';
+          else if (classes.includes('end')) cell.textContent = 'F';
+          else if (classes.includes('pasillo')) cell.style.color = '#666';
+          
+          grid.appendChild(cell);
+        }
+      }
+    }
+
+    function debugTest() {
+      console.log('=== TEST GRID DEBUG ===');
+      console.log('PASILLOS:', PASILLOS);
+      
+      const cells = document.querySelectorAll('#testGrid .grid-cell');
+      console.log('Total cells:', cells.length);
+      
+      cells.forEach((cell, idx) => {
+        const row = parseInt(cell.dataset.row);
+        const col = parseInt(cell.dataset.col);
+        const isPasillo = PASILLOS.includes(col);
+        
+        if (isPasillo) {
+          const bg = window.getComputedStyle(cell).backgroundColor;
+          const border = window.getComputedStyle(cell).borderColor;
+          console.log(`  [${row},${col}] pasillo - bg: ${bg}, border: ${border}`);
+        }
+      });
+    }
+
+    // Inicializar
+    createTestGrid();
+  </script>
+</body>
+</html>

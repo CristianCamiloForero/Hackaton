@@ -84,6 +84,43 @@ body {
   background: white;
 }
 
+/* Cycle Count results */
+.cycle-stats {
+  padding: 12px 0;
+  color: var(--gray-700);
+}
+.cycle-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+.cycle-table th, .cycle-table td {
+  border: 1px solid var(--gray-200);
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 0.95rem;
+}
+.cycle-table thead th {
+  background: var(--gray-100);
+  font-weight: 700;
+}
+.cycle-table tbody tr:nth-child(odd) {
+  background: #fafafa;
+}
+
+.cycle-table-input th, .cycle-table-input td {
+  border: 1px solid var(--gray-200);
+  padding: 6px 8px;
+}
+.cycle-table-input thead th {
+  background: #f8fafc;
+  font-weight: 700;
+}
+.btn-danger.small {
+  padding: 6px 8px;
+  font-size: 0.85rem;
+}
+
 .cta-section h2 {
   font-size: 2rem;
   color: var(--gray-800);
@@ -234,6 +271,70 @@ body {
 .form-header h3 {
   font-size: 1.5rem;
   color: var(--gray-800);
+}
+
+/* Tabs */
+.tabs-container {
+  margin-bottom: 24px;
+}
+
+.mode-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.mode-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  color: var(--gray-600);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -18px;
+}
+
+.mode-tab:hover {
+  color: var(--primary);
+}
+
+.mode-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.consolidate-info {
+  background: #f0f4f8;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.consolidate-info h4 {
+  margin-bottom: 8px;
+  color: var(--primary);
+}
+
+.consolidate-info p {
+  font-size: 0.9rem;
+  color: var(--gray-600);
+  margin-bottom: 12px;
+}
+
+.consolidate-info textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
 }
 
 /* Tabs */
@@ -531,26 +632,50 @@ input[type="number"]:focus {
   font-weight: 600;
   background: white;
   transition: all 0.3s ease;
+  cursor: pointer;
 }
 
+/* ALMACENES: Fondo de cada zona (columnas agrupadas) */
+.grid-cell.almacen:not(.start):not(.package):not(.end):not(.path):not(.pasillo) {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* PASILLOS: Solo si la celda NO tiene contenido especial */
+.grid-cell.pasillo:not(.start):not(.package):not(.end):not(.path) {
+  background: #fef3c7 !important;
+  border-color: #fbbf24 !important;
+  color: var(--gray-700) !important;
+}
+
+/* CONTENIDO ESPECIAL - SIEMPRE VISIBLE (mayor especificidad) */
 .grid-cell.start {
-  background: #10b981;
-  color: white;
+  background: #10b981 !important;
+  color: white !important;
+  border-color: #059669 !important;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .grid-cell.package {
-  background: #f59e0b;
-  color: white;
+  background: #f59e0b !important;
+  color: white !important;
+  border-color: #d97706 !important;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .grid-cell.path {
   background: #3b82f6;
   color: white;
+  border-color: #1d4ed8;
 }
 
 .grid-cell.end {
-  background: #ef4444;
-  color: white;
+  background: #ef4444 !important;
+  color: white !important;
+  border-color: #dc2626 !important;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 /* Table */
