@@ -1,9 +1,12 @@
-from .config import FILAS, COLUMNAS, PASILLOS, PAQUETES, INICIO, COSTO_CELDA, COSTO_PASILLO
+from .config import FILAS, COLUMNAS, PASILLOS, PAQUETES, INICIO, FINAL, COSTO_CELDA, COSTO_PASILLO
 from .optimizador import Optimizador
 
 
 class RobotAlmacen:
-    """Clase que representa un robot recolector de paquetes en un almacén (backend optimizado)"""
+    """
+    Robot recolector optimizado con restricciones de movimiento.
+    Solo puede cambiar de columna pasando por columnas 0 u 8.
+    """
 
     def __init__(self, paquetes=None, inicio=None, costo_celda=None, costo_pasillo=None):
         if paquetes is None:
@@ -20,7 +23,7 @@ class RobotAlmacen:
         self.costo_celda_valor = float(costo_celda)
         self.costo_pasillo_valor = float(costo_pasillo)
 
-        # Crear matriz como lista de listas
+        # Matriz del almacén
         self.matriz = [["" for _ in range(COLUMNAS)] for _ in range(FILAS)]
         self.fila_actual = inicio[0]
         self.col_actual = inicio[1]
@@ -28,7 +31,7 @@ class RobotAlmacen:
         self.pasos = []
         self.ruta = [(self.fila_actual, self.col_actual)]
 
-        # Inicializar optimizador
+        # Optimizador con restricciones
         self.optimizador = Optimizador(costo_celda, costo_pasillo)
 
         self._inicializar_matriz()
@@ -55,9 +58,6 @@ class RobotAlmacen:
     def es_pasillo(self, col):
         return col in PASILLOS
 
-    def columna_vacia(self, col):
-        return col not in self.paquetes_por_columna
-
     def calcular_distancia(self, fila1, col1, fila2, col2):
         """Calcula distancia y costo entre dos posiciones"""
         pasos_fila = abs(fila2 - fila1)
@@ -80,7 +80,9 @@ class RobotAlmacen:
 
     def mover_a(self, fila_dest, col_dest, descripcion):
         """Registra movimiento del robot"""
-        pasos, costo = self.calcular_distancia(self.fila_actual, self.col_actual, fila_dest, col_dest)
+        pasos, costo = self.calcular_distancia(
+            self.fila_actual, self.col_actual, fila_dest, col_dest
+        )
         self.costo_total += costo
         self.pasos.append({
             'Desde': f"({self.fila_actual},{self.col_actual})",
@@ -88,7 +90,6 @@ class RobotAlmacen:
             'Pasos': pasos,
             'Costo': round(costo, 2),
             'Es Pasillo': "Sí" if self.es_pasillo(col_dest) else "No",
-            'Columna Vacía': "Sí" if self.columna_vacia(col_dest) else "No",
             'Acumulado': round(self.costo_total, 2),
             'Descripción': descripcion
         })
@@ -96,82 +97,164 @@ class RobotAlmacen:
         self.col_actual = col_dest
         self.ruta.append((fila_dest, col_dest))
 
-    def determinar_punto_entrada_salida(self, col, pos_actual):
+    def procesar_columna_con_restriccion(self, col, config):
         """
-        Determina el mejor punto de entrada y salida de una columna.
-        Optimización: evalúa desde qué extremo es más eficiente entrar.
+        Procesa una columna respetando las restricciones de movimiento.
+        
+        Args:
+            col: columna a procesar
+            config: configuración retornada por el optimizador con:
+                - col_transicion: columna de transición (0 o 8)
+                - entrada: fila de entrada a la columna
+                - salida: fila de salida de la columna
+                - fila_trans: fila en la columna de transición
         """
-        if self.columna_vacia(col):
-            return None, None
-        
-        paquetes_fila = self.paquetes_por_columna[col]
-        primer_paquete = paquetes_fila[0]
-        ultimo_paquete = paquetes_fila[-1]
-        
-        # Calcular costo de entrar por arriba
-        costo_arriba = abs(pos_actual - 0) + abs(0 - ultimo_paquete)
-        
-        # Calcular costo de entrar por abajo
-        costo_abajo = abs(pos_actual - (FILAS - 1)) + abs((FILAS - 1) - primer_paquete)
-        
-        if costo_arriba <= costo_abajo:
-            return 0, FILAS - 1  # Entrar por arriba, salir por abajo
-        else:
-            return FILAS - 1, 0  # Entrar por abajo, salir por arriba
-
-    def procesar_columna_optimizada(self, col):
-        """Procesa una columna con estrategia optimizada - SIN recorridos innecesarios"""
-        if self.columna_vacia(col):
+        if col not in self.paquetes_por_columna:
             return
         
         paquetes_fila = self.paquetes_por_columna[col]
         
-        # Moverse horizontalmente a la columna si es necesario
-        if col != self.col_actual:
-            self.mover_a(self.fila_actual, col, f"Moverse a columna {col}")
+        # Si necesitamos transición (cambio de columna)
+        if config['col_transicion'] is not None and self.col_actual != col:
+            col_trans = config['col_transicion']
+            
+            # 1. Moverse horizontalmente a columna de transición
+            if self.col_actual != col_trans:
+                self.mover_a(
+                    self.fila_actual, 
+                    col_trans, 
+                    f"Transición a columna {col_trans}"
+                )
+            
+            # 2. Moverse verticalmente en columna de transición
+            if self.fila_actual != config['fila_trans']:
+                self.mover_a(
+                    config['fila_trans'], 
+                    col_trans, 
+                    f"Ajuste vertical en transición"
+                )
+            
+            # 3. Moverse horizontalmente a columna destino
+            if col_trans != col:
+                self.mover_a(
+                    self.fila_actual, 
+                    col, 
+                    f"Entrada a columna {col}"
+                )
+        elif self.col_actual != col:
+            # Ya estamos en columna de transición, solo ir a destino
+            self.mover_a(
+                self.fila_actual, 
+                col, 
+                f"Entrada a columna {col}"
+            )
         
-        # Estrategia simple y óptima: visitar paquetes en orden vertical
-        # Minimiza movimientos innecesarios
-        paquetes_ordenados = sorted(paquetes_fila)
+        # 4. Procesar paquetes en la columna
+        filas_ordenadas = sorted(paquetes_fila)
         
-        # Detectar si es mejor ir de arriba-abajo o abajo-arriba
-        if self.fila_actual <= paquetes_ordenados[0]:
-            # Robot está arriba o al inicio: recorrer de arriba-abajo
-            for idx, fila_paq in enumerate(paquetes_ordenados):
+        # Determinar dirección de recorrido
+        if config['entrada'] <= filas_ordenadas[0]:
+            # Recorrer de arriba hacia abajo
+            for idx, fila_paq in enumerate(filas_ordenadas):
                 if self.fila_actual != fila_paq:
-                    self.mover_a(fila_paq, col, f"Recoger paquete {idx+1}")
+                    self.mover_a(
+                        fila_paq, 
+                        col, 
+                        f"Recoger paquete en ({fila_paq},{col})"
+                    )
         else:
-            # Robot está abajo: recorrer de abajo-arriba
-            for idx, fila_paq in enumerate(reversed(paquetes_ordenados)):
+            # Recorrer de abajo hacia arriba
+            for idx, fila_paq in enumerate(reversed(filas_ordenadas)):
                 if self.fila_actual != fila_paq:
-                    self.mover_a(fila_paq, col, f"Recoger paquete {idx+1}")
+                    self.mover_a(
+                        fila_paq, 
+                        col, 
+                        f"Recoger paquete en ({fila_paq},{col})"
+                    )
+        
+        # 5. Moverse al punto de salida de la columna
+        if self.fila_actual != config['salida']:
+            self.mover_a(
+                config['salida'], 
+                col, 
+                f"Salida de columna {col}"
+            )
 
     def ejecutar_recoleccion(self):
         """
-        Ejecuta la recolección con optimización de ruta.
-        Usa el optimizador para determinar el mejor orden de columnas.
+        Ejecuta la recolección completa con optimización y restricciones.
+        Incluye ruta optimizada de salida al punto de entrega.
         """
         self.pasos = []
         self.ruta = [(self.fila_actual, self.col_actual)]
+        self.costo_total = 0
         
-        # Obtener orden optimizado de columnas
+        # 1. Obtener orden optimizado de columnas
         columnas_ordenadas = self.optimizador.optimizar_orden_columnas(
             self.paquetes,
             [self.fila_actual, self.col_actual]
         )
         
-        # Procesar cada columna en el orden optimizado
+        # 2. Procesar cada columna con restricciones
+        pos_actual = [self.fila_actual, self.col_actual]
+        
         for col in columnas_ordenadas:
-            self.procesar_columna_optimizada(col)
+            filas = self.paquetes_por_columna[col]
+            config = self.optimizador.calcular_costo_con_restriccion(
+                pos_actual, col, filas
+            )
+            
+            self.procesar_columna_con_restriccion(col, config)
+            pos_actual = [self.fila_actual, self.col_actual]
+        
+        # 3. Ruta optimizada hacia punto de entrega (FINAL)
+        if hasattr(self, 'final_punto'):
+            punto_entrega = self.final_punto
+        else:
+            punto_entrega = FINAL
+        
+        ruta_salida, costo_salida = self.optimizador.calcular_ruta_optima_salida(
+            [self.fila_actual, self.col_actual],
+            punto_entrega
+        )
+        
+        # Ejecutar ruta de salida
+        for fila_dest, col_dest in ruta_salida:
+            self.mover_a(fila_dest, col_dest, "Ruta hacia punto de entrega")
         
         return {
             'total_cost': round(self.costo_total, 2),
             'pos_final': [self.fila_actual, self.col_actual],
             'pasos': self.pasos,
             'ruta': self.ruta,
-            'orden_columnas': columnas_ordenadas
+            'orden_columnas': columnas_ordenadas,
+            'ahorro_estimado': self._calcular_ahorro()
+        }
+
+    def _calcular_ahorro(self):
+        """
+        Estima el ahorro comparado con una ruta sin optimización.
+        """
+        # Costo estimado sin optimización (ruta directa secuencial)
+        costo_sin_opt = 0
+        pos = self.inicio[:]
+        
+        for paq in self.paquetes:
+            costo_sin_opt += self.optimizador.calcular_costo_movimiento(
+                pos[0], pos[1], paq[0], paq[1]
+            )
+            pos = paq[:]
+        
+        ahorro = costo_sin_opt - self.costo_total
+        porcentaje = (ahorro / costo_sin_opt * 100) if costo_sin_opt > 0 else 0
+        
+        return {
+            'costo_sin_optimizar': round(costo_sin_opt, 2),
+            'costo_optimizado': round(self.costo_total, 2),
+            'ahorro_absoluto': round(ahorro, 2),
+            'ahorro_porcentaje': round(porcentaje, 2)
         }
 
     def generar_tabla_pasos(self):
-        """Devuelve lista de pasos (sin pandas)"""
+        """Devuelve lista de pasos"""
         return self.pasos

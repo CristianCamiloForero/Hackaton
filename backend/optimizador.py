@@ -4,12 +4,13 @@ from .config import FILAS, PASILLOS
 
 class Optimizador:
     """
-    Optimizador mejorado que usa múltiples estrategias:
-    1. Permutaciones completas para conjuntos pequeños (<= 8 columnas)
-    2. Algoritmo greedy mejorado para conjuntos grandes
-    3. Vecino más cercano con look-ahead
-    4. Optimización 2-opt para refinar rutas
+    Optimizador mejorado con restricciones de cambio de columna.
+    El robot solo puede cambiar de columna pasando por columnas 0 u 8.
+    ESTRATEGIA: Agrupar columnas por zonas y minimizar transiciones.
     """
+    
+    # Columnas permitidas para cambio de nivel (extremos del almacén)
+    COLUMNAS_TRANSICION = [0, 8]
     
     def __init__(self, costo_celda, costo_pasillo):
         self.costo_celda = float(costo_celda)
@@ -32,252 +33,330 @@ class Optimizador:
                 
         return costo
 
+    def agrupar_columnas_por_zona(self, columnas):
+        """
+        Agrupa columnas en zonas accesibles sin cruzar pasillos principales.
+        Esto minimiza las transiciones necesarias.
+        """
+        if not columnas:
+            return []
+        
+        zonas = []
+        zona_actual = [columnas[0]]
+        
+        for i in range(1, len(columnas)):
+            col_anterior = columnas[i-1]
+            col_actual = columnas[i]
+            
+            # Verificar si necesitamos transición entre estas columnas
+            # (si hay que cruzar de una zona a otra a través de columnas 0 u 8)
+            necesita_transicion = self._necesita_transicion(col_anterior, col_actual)
+            
+            if necesita_transicion:
+                # Nueva zona
+                zonas.append(zona_actual)
+                zona_actual = [col_actual]
+            else:
+                # Misma zona
+                zona_actual.append(col_actual)
+        
+        zonas.append(zona_actual)
+        return zonas
+
+    def _necesita_transicion(self, col1, col2):
+        """
+        Determina si se necesita transición entre dos columnas.
+        Solo necesitamos transición si las columnas no están en la misma "zona conectada"
+        """
+        # Si ambas columnas son de transición, no hay problema
+        if col1 in self.COLUMNAS_TRANSICION and col2 in self.COLUMNAS_TRANSICION:
+            return False
+        
+        # Si una es de transición y la otra no, siempre es accesible
+        if col1 in self.COLUMNAS_TRANSICION or col2 in self.COLUMNAS_TRANSICION:
+            return False
+        
+        # Si ambas están del mismo lado (0-7 o 8-11), verificar si están conectadas
+        # Definir zonas: 0-3 (izquierda de col 0), 4-7 (entre 0 y 8), 9-11 (derecha de col 8)
+        zona1 = self._obtener_zona_columna(col1)
+        zona2 = self._obtener_zona_columna(col2)
+        
+        # Solo necesitan transición si están en zonas diferentes
+        return zona1 != zona2
+
+    def _obtener_zona_columna(self, col):
+        """
+        Determina en qué zona está una columna:
+        - zona 'izq': columnas accesibles desde columna 0 (0-3)
+        - zona 'centro': columnas entre 0 y 8 (4-7) 
+        - zona 'der': columnas accesibles desde columna 8 (8-11)
+        """
+        if col <= 3:
+            return 'izq'
+        elif col <= 7:
+            return 'centro'
+        else:
+            return 'der'
+
+    def calcular_costo_con_restriccion(self, pos_actual, col_destino, filas_destino):
+        """
+        Calcula el costo de ir a una columna considerando la restricción.
+        OPTIMIZADO: Solo hace transición si es necesario cambiar de zona.
+        """
+        fila_actual, col_actual = pos_actual
+        
+        # Si ya estamos en la columna destino
+        if col_actual == col_destino:
+            return self._costo_dentro_columna(fila_actual, col_destino, filas_destino)
+        
+        # Verificar si necesitamos transición
+        necesita_transicion = self._necesita_transicion(col_actual, col_destino)
+        
+        if not necesita_transicion:
+            # Movimiento directo sin transición
+            return self._costo_movimiento_directo(pos_actual, col_destino, filas_destino)
+        
+        # Necesitamos transición: evaluar ambas opciones (col 0 o col 8)
+        mejor_costo = float('inf')
+        mejor_config = None
+        
+        for col_trans in self.COLUMNAS_TRANSICION:
+            config = self._calcular_costo_via_transicion(
+                pos_actual, col_destino, filas_destino, col_trans
+            )
+            
+            if config['costo'] < mejor_costo:
+                mejor_costo = config['costo']
+                mejor_config = config
+        
+        return mejor_config
+
+    def _costo_movimiento_directo(self, pos_actual, col_destino, filas_destino):
+        """Calcula costo de movimiento directo sin transición"""
+        fila_actual, col_actual = pos_actual
+        
+        # Determinar mejor punto de entrada
+        filas_ordenadas = sorted(filas_destino)
+        punto_medio = filas_ordenadas[len(filas_ordenadas) // 2]
+        
+        # Evaluar entrar por arriba o por abajo
+        if fila_actual <= punto_medio:
+            entrada = min(filas_ordenadas)
+            salida = max(filas_ordenadas)
+        else:
+            entrada = max(filas_ordenadas)
+            salida = min(filas_ordenadas)
+        
+        # Costo: ir a la entrada + procesar columna
+        costo = self.calcular_costo_movimiento(fila_actual, col_actual, entrada, col_destino)
+        costo += self._costo_procesar_columna(entrada, col_destino, filas_destino, salida)
+        
+        return {
+            'costo': costo,
+            'col_transicion': None,
+            'entrada': entrada,
+            'salida': salida,
+            'fila_trans': None
+        }
+
+    def _calcular_costo_via_transicion(self, pos_actual, col_destino, filas_destino, col_trans):
+        """Calcula costo pasando por una columna de transición específica"""
+        fila_actual, col_actual = pos_actual
+        filas_ordenadas = sorted(filas_destino)
+        
+        # Determinar mejor punto de entrada desde la transición
+        punto_medio = filas_ordenadas[len(filas_ordenadas) // 2]
+        
+        if punto_medio <= FILAS // 2:
+            entrada = 0
+            salida = FILAS - 1
+        else:
+            entrada = FILAS - 1
+            salida = 0
+        
+        # Costo total
+        costo = 0
+        
+        # 1. Ir a columna de transición
+        costo += self.calcular_costo_movimiento(fila_actual, col_actual, fila_actual, col_trans)
+        
+        # 2. Moverse verticalmente en transición
+        costo += abs(entrada - fila_actual) * self.costo_celda
+        
+        # 3. Ir desde transición a columna destino
+        costo += self.calcular_costo_movimiento(entrada, col_trans, entrada, col_destino)
+        
+        # 4. Procesar la columna
+        costo += self._costo_procesar_columna(entrada, col_destino, filas_destino, salida)
+        
+        return {
+            'costo': costo,
+            'col_transicion': col_trans,
+            'entrada': entrada,
+            'salida': salida,
+            'fila_trans': entrada
+        }
+
+    def _costo_dentro_columna(self, fila_actual, col, filas_destino):
+        """Calcula costo cuando ya estamos en la columna destino"""
+        filas_ordenadas = sorted(filas_destino)
+        
+        # Determinar mejor dirección
+        if fila_actual <= filas_ordenadas[0]:
+            salida = max(filas_ordenadas)
+        else:
+            salida = min(filas_ordenadas)
+        
+        costo = self._costo_procesar_columna(fila_actual, col, filas_destino, salida)
+        
+        return {
+            'costo': costo,
+            'col_transicion': None,
+            'entrada': fila_actual,
+            'salida': salida,
+            'fila_trans': None
+        }
+
+    def _costo_procesar_columna(self, fila_entrada, col, filas_paquetes, fila_salida):
+        """Calcula el costo de procesar todos los paquetes en una columna"""
+        costo = 0
+        fila_actual = fila_entrada
+        
+        filas_ordenadas = sorted(filas_paquetes)
+        
+        # Recorrer paquetes en orden
+        if fila_entrada <= filas_ordenadas[0]:
+            # De arriba hacia abajo
+            for fila_paq in filas_ordenadas:
+                costo += abs(fila_paq - fila_actual) * self.costo_celda
+                fila_actual = fila_paq
+        else:
+            # De abajo hacia arriba
+            for fila_paq in reversed(filas_ordenadas):
+                costo += abs(fila_paq - fila_actual) * self.costo_celda
+                fila_actual = fila_paq
+        
+        # Ir a punto de salida
+        costo += abs(fila_salida - fila_actual) * self.costo_celda
+        
+        return costo
+
     def optimizar_orden_columnas(self, paquetes, inicio):
         """
-        Determina el orden óptimo para visitar las columnas.
-        Usa fuerza bruta para <= 8 columnas, algoritmos heurísticos para más.
+        Determina el orden óptimo para visitar columnas minimizando transiciones.
+        ESTRATEGIA: Agrupar columnas por zonas y optimizar dentro de cada zona.
         """
         columnas_unicas = sorted(set(col for fila, col in paquetes))
         
         if len(columnas_unicas) <= 1:
             return columnas_unicas
         
-        # Para 8 o menos columnas: fuerza bruta (8! = 40,320 permutaciones)
-        if len(columnas_unicas) <= 8:
-            return self._optimizar_fuerza_bruta(paquetes, inicio, columnas_unicas)
-        
-        # Para más columnas: combinación de estrategias
-        return self._optimizar_hibrido(paquetes, inicio, columnas_unicas)
-
-    def _optimizar_fuerza_bruta(self, paquetes, inicio, columnas):
-        """Prueba todas las permutaciones posibles (óptimo garantizado)"""
-        mejor_costo = float('inf')
-        mejor_orden = columnas
-        
-        for perm in itertools.permutations(columnas):
-            costo = self._calcular_costo_orden(list(perm), paquetes, inicio)
-            if costo < mejor_costo:
-                mejor_costo = costo
-                mejor_orden = list(perm)
-        
-        return mejor_orden
-
-    def _optimizar_hibrido(self, paquetes, inicio, columnas):
-        """
-        Para muchas columnas: combina nearest neighbor + 2-opt
-        """
-        # 1. Generar solución inicial con nearest neighbor mejorado
-        solucion_nn = self._nearest_neighbor_mejorado(paquetes, inicio, columnas)
-        
-        # 2. Refinar con 2-opt
-        solucion_2opt = self._optimizar_2opt(solucion_nn, paquetes, inicio)
-        
-        # 3. También probar greedy básico y quedarse con la mejor
-        solucion_greedy = self._optimizar_greedy_mejorado(paquetes, inicio, columnas)
-        
-        costo_2opt = self._calcular_costo_orden(solucion_2opt, paquetes, inicio)
-        costo_greedy = self._calcular_costo_orden(solucion_greedy, paquetes, inicio)
-        
-        return solucion_2opt if costo_2opt < costo_greedy else solucion_greedy
-
-    def _nearest_neighbor_mejorado(self, paquetes, inicio, columnas):
-        """
-        Vecino más cercano con look-ahead de 2 pasos.
-        """
-        orden = []
-        pos_actual = inicio[:]
-        columnas_restantes = set(columnas)
-        
-        while columnas_restantes:
-            if len(columnas_restantes) == 1:
-                orden.append(columnas_restantes.pop())
-                break
-            
-            mejor_col = None
-            mejor_costo_total = float('inf')
-            
-            # Para cada columna candidata, evaluar también el siguiente paso
-            for col in columnas_restantes:
-                # Costo de ir a esta columna
-                costo_actual = self._estimar_costo_visita_columna(
-                    col, paquetes, pos_actual
-                )
-                
-                # Look-ahead: evaluar el mejor siguiente paso
-                temp_restantes = columnas_restantes - {col}
-                if temp_restantes:
-                    # Posición después de visitar esta columna
-                    pos_temp = self._posicion_despues_columna(col, paquetes, pos_actual)
-                    
-                    # Encontrar el costo al vecino más cercano desde ahí
-                    min_siguiente = min(
-                        abs(pos_temp[1] - c) for c in temp_restantes
-                    )
-                    costo_total = costo_actual + min_siguiente * self.costo_celda
-                else:
-                    costo_total = costo_actual
-                
-                if costo_total < mejor_costo_total:
-                    mejor_costo_total = costo_total
-                    mejor_col = col
-            
-            orden.append(mejor_col)
-            pos_actual = self._posicion_despues_columna(mejor_col, paquetes, pos_actual)
-            columnas_restantes.remove(mejor_col)
-        
-        return orden
-
-    def _optimizar_greedy_mejorado(self, paquetes, inicio, columnas):
-        """
-        Greedy que considera no solo distancia sino también densidad de paquetes.
-        """
-        orden = []
-        pos_actual = inicio[:]
-        columnas_restantes = set(columnas)
-        
-        # Calcular densidad de paquetes por columna
-        densidad = {}
-        for col in columnas:
-            paquetes_col = [p for p in paquetes if p[1] == col]
-            densidad[col] = len(paquetes_col)
-        
-        while columnas_restantes:
-            mejor_col = None
-            mejor_score = float('inf')
-            
-            for col in columnas_restantes:
-                # Distancia horizontal
-                dist = abs(pos_actual[1] - col)
-                
-                # Penalizar pasillos en el camino
-                pasillos_en_camino = sum(
-                    1 for c in range(min(pos_actual[1], col), max(pos_actual[1], col))
-                    if (c + 1) in PASILLOS
-                )
-                
-                # Score: distancia + penalización de pasillos - bonus por densidad
-                score = (
-                    dist * self.costo_celda +
-                    pasillos_en_camino * (self.costo_pasillo - self.costo_celda) -
-                    densidad[col] * 0.5  # Bonus por recoger más paquetes
-                )
-                
-                if score < mejor_score:
-                    mejor_score = score
-                    mejor_col = col
-            
-            orden.append(mejor_col)
-            pos_actual[1] = mejor_col
-            columnas_restantes.remove(mejor_col)
-        
-        return orden
-
-    def _optimizar_2opt(self, orden, paquetes, inicio, max_iteraciones=100):
-        """
-        Optimización 2-opt: intercambia pares de segmentos para mejorar la ruta.
-        """
-        mejor_orden = orden[:]
-        mejor_costo = self._calcular_costo_orden(mejor_orden, paquetes, inicio)
-        mejora = True
-        iteracion = 0
-        
-        while mejora and iteracion < max_iteraciones:
-            mejora = False
-            iteracion += 1
-            
-            for i in range(1, len(mejor_orden) - 1):
-                for j in range(i + 1, len(mejor_orden)):
-                    # Crear nuevo orden invirtiendo el segmento [i:j]
-                    nuevo_orden = mejor_orden[:i] + mejor_orden[i:j][::-1] + mejor_orden[j:]
-                    nuevo_costo = self._calcular_costo_orden(nuevo_orden, paquetes, inicio)
-                    
-                    if nuevo_costo < mejor_costo:
-                        mejor_orden = nuevo_orden
-                        mejor_costo = nuevo_costo
-                        mejora = True
-                        break
-                
-                if mejora:
-                    break
-        
-        return mejor_orden
-
-    def _calcular_costo_orden(self, orden_columnas, paquetes, inicio):
-        """Calcula el costo total de un orden específico de columnas"""
+        # Agrupar paquetes por columna
         paquetes_por_columna = {}
         for fila, col in paquetes:
             if col not in paquetes_por_columna:
                 paquetes_por_columna[col] = []
             paquetes_por_columna[col].append(fila)
         
-        for col in paquetes_por_columna:
-            paquetes_por_columna[col].sort()
+        # Agrupar columnas por zonas para minimizar transiciones
+        zonas = self._optimizar_por_zonas(columnas_unicas, paquetes_por_columna, inicio)
         
-        costo = 0
-        pos_actual = inicio[:]
+        # Aplanar las zonas en un solo orden
+        orden_final = []
+        for zona in zonas:
+            orden_final.extend(zona)
         
-        for col in orden_columnas:
-            filas = paquetes_por_columna.get(col, [])
-            if not filas:
-                continue
-            
-            # Determinar mejor punto de entrada
-            dist_arriba = abs(pos_actual[0] - 0) + abs(0 - filas[0])
-            dist_abajo = abs(pos_actual[0] - (FILAS - 1)) + abs((FILAS - 1) - filas[-1])
-            
-            if dist_arriba <= dist_abajo:
-                entrada = 0
-                salida = FILAS - 1
+        return orden_final
+
+    def _optimizar_por_zonas(self, columnas, paquetes_por_col, inicio):
+        """
+        Agrupa columnas en zonas y optimiza el orden de visita.
+        Minimiza el número de transiciones entre zonas.
+        """
+        # Clasificar columnas por zona
+        zonas_dict = {'izq': [], 'centro': [], 'der': []}
+        
+        for col in columnas:
+            zona = self._obtener_zona_columna(col)
+            zonas_dict[zona].append(col)
+        
+        # Determinar orden óptimo de zonas basado en posición inicial
+        col_inicio = inicio[1]
+        zona_inicio = self._obtener_zona_columna(col_inicio)
+        
+        # Estrategia: visitar zona actual primero, luego las adyacentes
+        if zona_inicio == 'izq':
+            orden_zonas = ['izq', 'centro', 'der']
+        elif zona_inicio == 'der':
+            orden_zonas = ['der', 'centro', 'izq']
+        else:  # centro
+            # Evaluar qué lado tiene más columnas
+            if len(zonas_dict['izq']) >= len(zonas_dict['der']):
+                orden_zonas = ['izq', 'centro', 'der']
             else:
-                entrada = FILAS - 1
-                salida = 0
-            
-            # Costo horizontal hacia la columna
-            costo += self.calcular_costo_movimiento(pos_actual[0], pos_actual[1], pos_actual[0], col)
-            pos_actual[1] = col
-            
-            # Costo de entrar a la columna
-            costo += self.calcular_costo_movimiento(pos_actual[0], col, entrada, col)
-            pos_actual[0] = entrada
-            
-            # Costo de recorrer la columna
-            costo += self.calcular_costo_movimiento(pos_actual[0], col, salida, col)
-            pos_actual[0] = salida
+                orden_zonas = ['der', 'centro', 'izq']
         
-        return costo
+        # Construir orden final
+        resultado = []
+        for zona_nombre in orden_zonas:
+            if zonas_dict[zona_nombre]:
+                # Ordenar columnas dentro de cada zona
+                columnas_zona = sorted(zonas_dict[zona_nombre])
+                resultado.append(columnas_zona)
+        
+        return resultado
 
-    def _estimar_costo_visita_columna(self, col, paquetes, pos_actual):
-        """Estima el costo de visitar una columna desde la posición actual"""
-        paquetes_col = [p[0] for p in paquetes if p[1] == col]
-        if not paquetes_col:
-            return abs(pos_actual[1] - col) * self.costo_celda
+    def calcular_ruta_optima_salida(self, pos_final, punto_entrega):
+        """
+        Calcula la ruta óptima para salir hacia el punto de entrega.
+        """
+        fila_actual, col_actual = pos_final
+        fila_entrega, col_entrega = punto_entrega
         
-        paquetes_col.sort()
+        # Si ya estamos en la columna de entrega
+        if col_actual == col_entrega:
+            costo = abs(fila_entrega - fila_actual) * self.costo_celda
+            return [(fila_entrega, col_entrega)], costo
         
-        # Costo horizontal
-        costo = abs(pos_actual[1] - col) * self.costo_celda
+        # Verificar si necesitamos transición
+        necesita_trans = self._necesita_transicion(col_actual, col_entrega)
         
-        # Costo vertical (aproximado como el recorrido completo)
-        costo += FILAS * self.costo_celda
+        if not necesita_trans:
+            # Ruta directa
+            costo = self.calcular_costo_movimiento(
+                fila_actual, col_actual, fila_entrega, col_entrega
+            )
+            return [(fila_entrega, col_entrega)], costo
         
-        return costo
-
-    def _posicion_despues_columna(self, col, paquetes, pos_actual):
-        """Estima la posición después de visitar una columna"""
-        paquetes_col = [p[0] for p in paquetes if p[1] == col]
-        if not paquetes_col:
-            return [pos_actual[0], col]
+        # Necesitamos transición: evaluar ambas opciones
+        mejor_ruta = None
+        mejor_costo = float('inf')
         
-        paquetes_col.sort()
+        for col_trans in self.COLUMNAS_TRANSICION:
+            ruta = []
+            costo = 0
+            
+            # 1. Ir a columna de transición
+            if col_actual != col_trans:
+                ruta.append((fila_actual, col_trans))
+                costo += self.calcular_costo_movimiento(
+                    fila_actual, col_actual, fila_actual, col_trans
+                )
+            
+            # 2. Ajuste vertical en transición
+            if fila_actual != fila_entrega:
+                ruta.append((fila_entrega, col_trans))
+                costo += abs(fila_entrega - fila_actual) * self.costo_celda
+            
+            # 3. Ir al punto de entrega
+            if col_trans != col_entrega:
+                ruta.append((fila_entrega, col_entrega))
+                costo += self.calcular_costo_movimiento(
+                    fila_entrega, col_trans, fila_entrega, col_entrega
+                )
+            
+            if costo < mejor_costo:
+                mejor_costo = costo
+                mejor_ruta = ruta if ruta else [(fila_entrega, col_entrega)]
         
-        # Determinar punto de salida
-        dist_arriba = abs(pos_actual[0] - 0) + abs(0 - paquetes_col[0])
-        dist_abajo = abs(pos_actual[0] - (FILAS - 1)) + abs((FILAS - 1) - paquetes_col[-1])
-        
-        salida = FILAS - 1 if dist_arriba <= dist_abajo else 0
-        
-        return [salida, col]
-
-    def _optimizar_greedy(self, paquetes, inicio):
-        """Método greedy básico (mantenido por compatibilidad)"""
-        return self._optimizar_greedy_mejorado(paquetes, inicio, sorted(set(col for _, col in paquetes)))
+        return mejor_ruta, mejor_costo
