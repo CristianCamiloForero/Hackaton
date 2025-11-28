@@ -1,239 +1,131 @@
-from .config import FILAS, COLUMNAS, PASILLOS
+from .config import PASILLOS
 
+TRANSITIONS = {0, 8}
 
 class Optimizador:
     """
-    Optimizador SIMPLIFICADO siguiendo el algoritmo original:
-    - Recorrer columna por columna secuencialmente (0 a 11)
-    - Si la columna tiene paquetes, recogerlos todos
-    - Si está vacía, pasar a la siguiente
-    - Respetar costos de pasillos (5) vs celdas normales (2.7)
+    Optimizador que respeta las restricciones de movimiento del almacén.
+    - Los movimientos se descomponen en Vertical y Horizontal.
+    - Los movimientos horizontales que cruzan pasillos deben pasar por columnas de transición.
+    - El orden de las columnas se determina de forma secuencial.
     """
-    
+
     def __init__(self, costo_celda, costo_pasillo):
         self.costo_celda = float(costo_celda)
         self.costo_pasillo = float(costo_pasillo)
 
+    def _costo_horizontal_simple(self, col1, col2):
+        """Calcula costo y pasos para un movimiento horizontal directo (sin desvíos)."""
+        pasos = abs(col1 - col2)
+        costo = 0
+        
+        # El costo se aplica al movernos a la siguiente columna
+        for c in range(min(col1, col2), max(col1, col2)):
+            costo += self.costo_pasillo if (c + 1) in PASILLOS else self.costo_celda
+            
+        return pasos, costo
+
     def calcular_costo_movimiento(self, fila1, col1, fila2, col2):
         """
-        Calcula el costo y pasos de moverse de una posición a otra.
-        Respeta restricción: cambiar de zona SOLO por columnas 0 u 8.
+        Calcula el costo y pasos de moverse de una posición a otra, respetando TODAS las restricciones.
+        1. Movimientos se descomponen en Vertical y Horizontal (estilo V-H).
+        2. Movimientos horizontales que cruzan pasillos deben pasar por columnas de transición (0 u 8).
         """
-        pasos = 0
-        costo = 0
         
-        # Si estamos en la misma columna, solo movimiento vertical
-        if col1 == col2:
-            pasos_verticales = abs(fila2 - fila1)
-            costo = pasos_verticales * self.costo_celda
-            return pasos_verticales, costo
-        
-        # Si están en el MISMO LADO del almacén, movimiento horizontal directo
-        # Lado izquierdo: columnas 0-3, Lado derecho: columnas 9-11, Centro: 4-8
-        def get_zona(col):
-            if col < 4:
-                return 'izq'
-            elif col <= 8:
-                return 'centro'
-            else:
-                return 'der'
-        
-        zona1 = get_zona(col1)
-        zona2 = get_zona(col2)
-        
-        # Caso 1: Misma zona, movimiento horizontal directo
-        if zona1 == zona2:
-            # Movimiento vertical primero
-            pasos_verticales = abs(fila2 - fila1)
-            costo += pasos_verticales * self.costo_celda
-            pasos += pasos_verticales
-            
-            # Movimiento horizontal
-            for c in range(min(col1, col2), max(col1, col2)):
-                if (c + 1) in PASILLOS:
-                    costo += self.costo_pasillo
-                else:
-                    costo += self.costo_celda
-                pasos += 1
-            return pasos, costo
-        
-        # Caso 2: Diferentes zonas, pasar por columna 0 u 8 (elegir la más económica)
-        # Primero movimiento vertical a fila destino
+        # 1. Costo del movimiento vertical (siempre es directo)
         pasos_verticales = abs(fila2 - fila1)
-        costo += pasos_verticales * self.costo_celda
-        pasos += pasos_verticales
-        
-        # Detectar si necesitamos pasar por 0 u 8
-        if zona1 == 'izq' and zona2 == 'der':
-            # Pasar por 0 o 8, evaluamos ambas
-            costo_por_0 = self._costo_paso_horizontal(col1, col2, fila1, 0, fila2)
-            costo_por_8 = self._costo_paso_horizontal(col1, col2, fila1, 8, fila2)
-            pasos_por_0 = abs(col1 - 0) + abs(0 - col2)
-            pasos_por_8 = abs(col1 - 8) + abs(8 - col2)
+        costo_vertical = pasos_verticales * self.costo_celda
+
+        # 2. Costo del movimiento horizontal
+        pasos_horizontales = 0
+        costo_horizontal = 0
+
+        if col1 != col2:
+            left, right = min(col1, col2), max(col1, col2)
+            # Un cruce ocurre si un pasillo está ESTRICTAMENTE entre las dos columnas
+            cruza_pasillo = any(p in PASILLOS for p in range(left + 1, right))
             
-            if costo_por_0 <= costo_por_8:
-                pasos += pasos_por_0
-                costo += costo_por_0
+            # Si el movimiento horizontal cruza un pasillo y no empieza/termina en una transición,
+            # se debe desviar por la columna de transición más cercana/barata.
+            if cruza_pasillo and col1 not in TRANSITIONS and col2 not in TRANSITIONS:
+                # Calcular costo vía columna 0
+                pasos_a_0, costo_a_0 = self._costo_horizontal_simple(col1, 0)
+                pasos_de_0, costo_de_0 = self._costo_horizontal_simple(0, col2)
+                pasos_via_0 = pasos_a_0 + pasos_de_0
+                costo_via_0 = costo_a_0 + costo_de_0
+
+                # Calcular costo vía columna 8
+                pasos_a_8, costo_a_8 = self._costo_horizontal_simple(col1, 8)
+                pasos_de_8, costo_de_8 = self._costo_horizontal_simple(8, col2)
+                pasos_via_8 = pasos_a_8 + pasos_de_8
+                costo_via_8 = costo_a_8 + costo_de_8
+
+                # Elegir la ruta de transición más barata
+                if costo_via_0 <= costo_via_8:
+                    pasos_horizontales = pasos_via_0
+                    costo_horizontal = costo_via_0
+                else:
+                    pasos_horizontales = pasos_via_8
+                    costo_horizontal = costo_via_8
             else:
-                pasos += pasos_por_8
-                costo += costo_por_8
-        elif zona1 == 'der' and zona2 == 'izq':
-            # Pasar por 8 o 0, evaluamos ambas
-            costo_por_0 = self._costo_paso_horizontal(col1, col2, fila1, 0, fila2)
-            costo_por_8 = self._costo_paso_horizontal(col1, col2, fila1, 8, fila2)
-            pasos_por_0 = abs(col1 - 0) + abs(0 - col2)
-            pasos_por_8 = abs(col1 - 8) + abs(8 - col2)
-            
-            if costo_por_0 <= costo_por_8:
-                pasos += pasos_por_0
-                costo += costo_por_0
-            else:
-                pasos += pasos_por_8
-                costo += costo_por_8
-        else:
-            # Centro a lado: pasar por columna más cercana (0 u 8)
-            pasos_por_0 = abs(col1 - 0) + abs(0 - col2)
-            pasos_por_8 = abs(col1 - 8) + abs(8 - col2)
-            
-            if pasos_por_0 <= pasos_por_8:
-                costo += self._costo_paso_horizontal(col1, col2, fila1, 0, fila2)
-                pasos += pasos_por_0
-            else:
-                costo += self._costo_paso_horizontal(col1, col2, fila1, 8, fila2)
-                pasos += pasos_por_8
+                # Movimiento horizontal directo (no cruza pasillos o ya está en transición)
+                pasos_horizontales, costo_horizontal = self._costo_horizontal_simple(col1, col2)
+
+        total_pasos = pasos_verticales + pasos_horizontales
+        total_costo = costo_vertical + costo_horizontal
         
-        return pasos, costo
-    
-    def _costo_paso_horizontal(self, col_origen, col_destino, fila_origen, col_transicion, fila_destino):
-        """Calcula costo de pasar horizontalmente por una columna de transición."""
-        costo = 0
-        
-        # De origen a transición
-        for c in range(min(col_origen, col_transicion), max(col_origen, col_transicion)):
-            if (c + 1) in PASILLOS:
-                costo += self.costo_pasillo
-            else:
-                costo += self.costo_celda
-        
-        # De transición a destino
-        for c in range(min(col_transicion, col_destino), max(col_transicion, col_destino)):
-            if (c + 1) in PASILLOS:
-                costo += self.costo_pasillo
-            else:
-                costo += self.costo_celda
-        
-        return costo
+        return total_pasos, total_costo
 
     def optimizar_orden_columnas(self, paquetes, inicio):
         """
-        ALGORITMO SECUENCIAL: Visitar solo columnas con paquetes, en orden.
-        No hay saltos, no hay zigzag.
+        ALGORITMO SECUENCIAL: Visitar solo columnas con paquetes, en orden ascendente.
         """
         if not paquetes:
             return []
         
-        # Agrupar paquetes por columna
-        paquetes_por_columna = {}
-        for fila, col in paquetes:
-            if col not in paquetes_por_columna:
-                paquetes_por_columna[col] = []
-            paquetes_por_columna[col].append(fila)
-        
-        # Ordenar filas dentro de cada columna
-        for col in paquetes_por_columna:
-            paquetes_por_columna[col] = sorted(paquetes_por_columna[col])
-        
-        # Retornar columnas en orden secuencial
-        return sorted(paquetes_por_columna.keys())
+        columnas_con_paquetes = sorted(list(set(col for _, col in paquetes)))
+        return columnas_con_paquetes
 
     def calcular_costo_con_restriccion(self, pos_actual, col_destino, filas_destino):
         """
-        Calcula el costo de visitar una columna con paquetes.
-        SIMPLIFICADO: Ir a la columna, recoger todos, salir.
+        Calcula el costo de visitar una columna, recoger todos los paquetes y salir.
+        Determina el punto de entrada y salida óptimo para esa columna.
         """
         fila_actual, col_actual = pos_actual
-        
         filas_ordenadas = sorted(filas_destino)
         
-        # Estrategia: entrar por el paquete más cercano
-        paquete_mas_cercano = min(filas_ordenadas, key=lambda f: abs(f - fila_actual))
+        # Posibles puntos de entrada/salida: el primer y último paquete de la columna
+        entrada_arriba, salida_abajo = filas_ordenadas[0], filas_ordenadas[-1]
+        entrada_abajo, salida_arriba = filas_ordenadas[-1], filas_ordenadas[0]
         
-        # Decidir dirección basada en proximidad
-        if paquete_mas_cercano <= fila_actual:
-            entrada = paquete_mas_cercano
-            salida = max(filas_ordenadas)
-        else:
-            entrada = paquete_mas_cercano
-            salida = min(filas_ordenadas)
-        
-        # Costo total
-        pasos_entrada, costo_entrada = self.calcular_costo_movimiento(
-            fila_actual, col_actual, entrada, col_destino
-        )
-        
-        pasos_columna, costo_columna = self._procesar_columna(
-            entrada, col_destino, filas_destino, salida
-        )
-        
-        costo_total = costo_entrada + costo_columna
-        pasos_total = pasos_entrada + pasos_columna
-        
-        return {
-            'costo': costo_total,
-            'pasos': pasos_total,
-            'entrada': entrada,
-            'salida': salida,
-        }
+        # Calcular costo de la estrategia "entrar por arriba, salir por abajo"
+        _, costo_ida_arriba = self.calcular_costo_movimiento(fila_actual, col_actual, entrada_arriba, col_destino)
+        recorrido_columna = abs(salida_abajo - entrada_arriba)
+        costo_total_arriba = costo_ida_arriba + (recorrido_columna * self.costo_celda)
 
-    def _procesar_columna(self, fila_entrada, col, filas_paquetes, fila_salida):
-        """
-        Procesa todos los paquetes en una columna.
-        Recorre en orden secuencial (arriba a abajo o abajo a arriba).
-        """
-        pasos_total = 0
-        costo_total = 0
-        fila_actual = fila_entrada
+        # Calcular costo de la estrategia "entrar por abajo, salir por arriba"
+        _, costo_ida_abajo = self.calcular_costo_movimiento(fila_actual, col_actual, entrada_abajo, col_destino)
+        costo_total_abajo = costo_ida_abajo + (recorrido_columna * self.costo_celda)
         
-        filas_ordenadas = sorted(filas_paquetes)
-        
-        # Recorrer en orden
-        if fila_entrada <= filas_ordenadas[0]:
-            # De arriba hacia abajo
-            for fila_paq in filas_ordenadas:
-                pasos, costo = self.calcular_costo_movimiento(
-                    fila_actual, col, fila_paq, col
-                )
-                pasos_total += pasos
-                costo_total += costo
-                fila_actual = fila_paq
+        # Elegir la estrategia más barata
+        if costo_total_arriba <= costo_total_abajo:
+            return {'entrada': entrada_arriba, 'salida': salida_abajo}
         else:
-            # De abajo hacia arriba
-            for fila_paq in reversed(filas_ordenadas):
-                pasos, costo = self.calcular_costo_movimiento(
-                    fila_actual, col, fila_paq, col
-                )
-                pasos_total += pasos
-                costo_total += costo
-                fila_actual = fila_paq
-        
-        # Ir a punto de salida
-        pasos_salida, costo_salida = self.calcular_costo_movimiento(
-            fila_actual, col, fila_salida, col
-        )
-        pasos_total += pasos_salida
-        costo_total += costo_salida
-        
-        return pasos_total, costo_total
+            return {'entrada': entrada_abajo, 'salida': salida_arriba}
 
     def calcular_ruta_optima_salida(self, pos_final, punto_entrega):
-        """Calcula la ruta hacia el punto de entrega."""
+        """
+        Calcula el costo hacia el punto de entrega y devuelve una ruta placeholder.
+        El robot se encargará de descomponer el movimiento final.
+        """
         fila_actual, col_actual = pos_final
         fila_entrega, col_entrega = punto_entrega
         
-        pasos, costo = self.calcular_costo_movimiento(
+        _, costo = self.calcular_costo_movimiento(
             fila_actual, col_actual, fila_entrega, col_entrega
         )
         
+        # La ruta solo necesita el punto final; el robot la construirá
         ruta = [(fila_entrega, col_entrega)]
         
         return ruta, costo
