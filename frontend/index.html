@@ -236,7 +236,46 @@
               <span class="legend-item"><span class="legend-color" style="background: #ef4444;"></span> Final</span>
             </div>
           </div>
-          <div id="warehouseGrid"></div>
+          <div style="overflow-x: auto; overflow-y: visible; width: 100%;">
+            <div id="warehouseGrid"></div>
+          </div>
+          <!-- Path Legend -->
+          <div class="path-legend" id="pathLegend" style="margin-top: 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <div style="font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2v6l4-4" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/>
+                <path d="M4 12h8v8H4z" fill="#6366f1" opacity="0.2"/>
+              </svg>
+              <span>Ruta del Robot</span>
+            </div>
+            <div style="display: flex; gap: 24px; flex-wrap: wrap; font-size: 13px;">
+              <span class="legend-item" style="display: flex; align-items: center; gap: 6px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="8" fill="#10b981"/>
+                </svg>
+                <span>Punto de inicio</span>
+              </span>
+              <span class="legend-item" style="display: flex; align-items: center; gap: 6px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="8" fill="#6366f1"/>
+                </svg>
+                <span>Punto intermedio (numerado)</span>
+              </span>
+              <span class="legend-item" style="display: flex; align-items: center; gap: 6px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="8" fill="#ef4444"/>
+                </svg>
+                <span>Punto de llegada</span>
+              </span>
+              <span class="legend-item" style="display: flex; align-items: center; gap: 6px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <line x1="2" y1="12" x2="14" y2="12" stroke="#6366f1" stroke-width="2"/>
+                  <polygon points="16,12 12,10 12,14" fill="#6366f1"/>
+                </svg>
+                <span>Línea de dirección (con flecha)</span>
+              </span>
+            </div>
+          </div>
         </div>
 
         <div class="table-container">

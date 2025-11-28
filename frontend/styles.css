@@ -617,7 +617,9 @@ input[type="number"]:focus {
   justify-content: center;
   margin: 20px auto;
   max-width: 100%;
-  overflow: auto;
+  overflow: visible;
+  position: relative;
+  width: fit-content;
 }
 
 .grid-cell {
@@ -797,6 +799,21 @@ tr:hover {
     opacity: 1;
     max-height: 2000px;
   }
+}
+
+/* Path Legend Styles */
+.path-legend {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.path-legend > div:first-child {
+  color: var(--primary);
+  font-size: 0.95rem;
+}
+
+.path-legend .legend-item {
+  font-size: 0.9rem;
+  color: var(--gray-700);
 }
 
 @keyframes float {

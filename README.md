@@ -399,6 +399,17 @@ pip install pandas openpyxl
 
 Proyecto educativo desarrollado como parte de un hackathon.
 
+## ✅ Estado final y notas de pruebas
+
+- Se integraron las correcciones detectadas durante la fase de pruebas:
+  - `backend/robot.py` refactorizado para evitar recursión y descomponer movimientos diagonales o que crucen pasillos mediante columnas de transición (`0` y `8`).
+  - `backend/optimizador.py` ajustado para devolver (pasos, costo) y evaluar rutas vía columnas de transición.
+  - Frontend (`frontend/app.js`) preparado para renderizar la `ruta` con segmentos ortogonales (L-shaped) y puntos clave numerados.
+- Se añadieron utilidades para validar la ruta generada localmente:
+  - `scripts/validate_response.py` y `scripts/validate_now.py` para validar `simulate_response.json`.
+  - `tests/utils.py` contiene el validador reutilizable (diagonales y cruces de pasillos).
+
+Sigue las instrucciones en la sección "🚀 Ejecución" para levantar el backend y el frontend. Si quieres que haga un commit o cree un `release` con estos cambios, dime y lo preparo.
 ---
 
 **¿Preguntas o sugerencias?** Revisa los archivos del proyecto o ejecuta `python Main.py` para más detalles.

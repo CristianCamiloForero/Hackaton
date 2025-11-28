@@ -361,6 +361,12 @@ function getAllPackages() {
 async function loadDefaults() {
   try {
     const res = await fetch(apiBase + '/defaults');
+    
+    if (!res.ok) {
+      showNotification('Error: No se pudo conectar con el backend', 'error');
+      return;
+    }
+    
     const data = await res.json();
     
     if (!data || !data.paquetes || !Array.isArray(data.paquetes)) {
@@ -370,15 +376,14 @@ async function loadDefaults() {
     
     // Clear existing tabs except first
     const existingTabs = document.querySelectorAll('.tab-button');
-    existingTabs.forEach((tab, idx) => {
-      if (idx > 0) {
-        const index = tab.dataset.tab;
-        const tabBtn = document.querySelector(`.tab-button[data-tab="${index}"]`);
-        const tabPane = document.querySelector(`.tab-pane[data-pane="${index}"]`);
-        if (tabBtn) tabBtn.remove();
-        if (tabPane) tabPane.remove();
-      }
-    });
+    for (let idx = existingTabs.length - 1; idx >= 1; idx--) {
+      const tab = existingTabs[idx];
+      const index = tab.dataset.tab;
+      const tabBtn = document.querySelector(`.tab-button[data-tab="${index}"]`);
+      const tabPane = document.querySelector(`.tab-pane[data-pane="${index}"]`);
+      if (tabBtn) tabBtn.remove();
+      if (tabPane) tabPane.remove();
+    }
     
     // Reset counter
     packageCount = data.paquetes.length;
@@ -456,9 +461,10 @@ async function loadDefaults() {
     
     switchTab(0);
     updateSummary();
-    showNotification('Ejemplo cargado correctamente');
+    showNotification('✓ Ejemplo cargado: ' + data.paquetes.length + ' paquetes');
   } catch (err) {
-    showNotification('Error al cargar ejemplo: ' + err, 'error');
+    console.error('Error en loadDefaults:', err);
+    showNotification('Error al cargar ejemplo: ' + err.message, 'error');
   }
 }
 
@@ -1154,79 +1160,172 @@ function renderWarehouseGrid(data) {
   }
 }
 
-// Draw Path with Simple Dots
+// Draw Path with Arrows and Numbered Points
 function drawPath(container, ruta, cellElements) {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.style.position = 'absolute';
-  svg.style.top = '0';
-  svg.style.left = '0';
-  svg.style.width = '100%';
-  svg.style.height = '100%';
-  svg.style.pointerEvents = 'none';
-  svg.style.zIndex = '10';
-  
-  // Draw lines between points
-  for (let i = 0; i < ruta.length - 1; i++) {
-    const [row1, col1] = ruta[i];
-    const [row2, col2] = ruta[i + 1];
-    
-    const cell1 = cellElements[row1] && cellElements[row1][col1];
-    const cell2 = cellElements[row2] && cellElements[row2][col2];
-    
-    if (!cell1 || !cell2) continue;
-    
-    const rect1 = cell1.getBoundingClientRect();
-    const rect2 = cell2.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
-    
-    const x1 = rect1.left - containerRect.left + rect1.width / 2;
-    const y1 = rect1.top - containerRect.top + rect1.height / 2;
-    const x2 = rect2.left - containerRect.left + rect2.width / 2;
-    const y2 = rect2.top - containerRect.top + rect2.height / 2;
-    
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', x1);
-    line.setAttribute('y1', y1);
-    line.setAttribute('x2', x2);
-    line.setAttribute('y2', y2);
-    line.setAttribute('stroke', '#6366f1');
-    line.setAttribute('stroke-width', '2');
-    line.style.opacity = '0.6';
-    
-    svg.appendChild(line);
-  }
-  
-  // Draw dots at each position
-  ruta.forEach((pos, idx) => {
-    const [row, col] = pos;
-    const cell = cellElements[row] && cellElements[row][col];
-    
-    if (!cell) return;
-    
-    const rect = cell.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
-    
-    const x = rect.left - containerRect.left + rect.width / 2;
-    const y = rect.top - containerRect.top + rect.height / 2;
-    
-    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    dot.setAttribute('cx', x);
-    dot.setAttribute('cy', y);
-    dot.setAttribute('r', '4');
-    
-    if (idx === 0) {
-      dot.setAttribute('fill', '#10b981');
-    } else if (idx === ruta.length - 1) {
-      dot.setAttribute('fill', '#ef4444');
-    } else {
-      dot.setAttribute('fill', '#6366f1');
+  // Wait for DOM to settle before drawing
+  setTimeout(() => {
+    // Remove any existing SVG
+    const existingSvg = container.querySelector('svg');
+    if (existingSvg) {
+      existingSvg.remove();
     }
     
-    dot.style.opacity = '0.8';
-    svg.appendChild(dot);
-  });
-  
-  container.appendChild(svg);
+    const containerRect = container.getBoundingClientRect();
+    
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.style.position = 'absolute';
+    svg.style.top = '0px';
+    svg.style.left = '0px';
+    svg.style.width = '100%';
+    svg.style.height = '100%';
+    svg.style.pointerEvents = 'none';
+    svg.style.zIndex = '10';
+    svg.style.overflow = 'visible';
+    svg.setAttribute('viewBox', `0 0 ${containerRect.width} ${containerRect.height}`);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    
+    // Add arrow marker definitions
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const markerArrow = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    const markerId = 'arrowhead-' + Date.now();
+    markerArrow.setAttribute('id', markerId);
+    markerArrow.setAttribute('markerWidth', '10');
+    markerArrow.setAttribute('markerHeight', '10');
+    markerArrow.setAttribute('refX', '9');
+    markerArrow.setAttribute('refY', '3');
+    markerArrow.setAttribute('orient', 'auto');
+    
+    const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    polygon.setAttribute('points', '0 0, 10 3, 0 6');
+    polygon.setAttribute('fill', '#6366f1');
+    markerArrow.appendChild(polygon);
+    defs.appendChild(markerArrow);
+    svg.appendChild(defs);
+    
+    // Use ruta tal como la proporciona el backend (ya contiene puntos clave y pasillos)
+    const puntosClave = ruta.map((pos, i) => ({ pos, tipo: i === 0 ? 'inicio' : (i === ruta.length - 1 ? 'final' : 'intermedio'), idx: i }));
+
+    // Draw lines entre puntos consecutivos de la ruta (HV-only: L-shapes si es necesario)
+    for (let i = 0; i < puntosClave.length - 1; i++) {
+      const [row1, col1] = puntosClave[i].pos;
+      const [row2, col2] = puntosClave[i + 1].pos;
+
+      const cell1 = cellElements[row1] && cellElements[row1][col1];
+      const cell2 = cellElements[row2] && cellElements[row2][col2];
+
+      if (!cell1 || !cell2) continue;
+
+      const rect1 = cell1.getBoundingClientRect();
+      const rect2 = cell2.getBoundingClientRect();
+
+      const x1 = rect1.left - containerRect.left + rect1.width / 2;
+      const y1 = rect1.top - containerRect.top + rect1.height / 2;
+      const x2 = rect2.left - containerRect.left + rect2.width / 2;
+      const y2 = rect2.top - containerRect.top + rect2.height / 2;
+
+      // If movement is aligned (same row or same column) draw single segment
+      if (row1 === row2 || col1 === col2) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        line.setAttribute('stroke', '#6366f1');
+        line.setAttribute('stroke-width', '3');
+        line.setAttribute('marker-end', `url(#${markerId})`);
+        line.style.opacity = '0.7';
+        svg.appendChild(line);
+      } else {
+        // Draw L-shape: vertical to target row, then horizontal to target col
+        const xm = x1; // corner x: keep source column
+        const ym = y2; // corner y: target row
+
+        // First segment: from (x1,y1) to (xm,ym)
+        const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line1.setAttribute('x1', x1);
+        line1.setAttribute('y1', y1);
+        line1.setAttribute('x2', xm);
+        line1.setAttribute('y2', ym);
+        line1.setAttribute('stroke', '#6366f1');
+        line1.setAttribute('stroke-width', '3');
+        line1.style.opacity = '0.7';
+        svg.appendChild(line1);
+
+        // Second segment: from (xm,ym) to (x2,y2) with arrow
+        const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line2.setAttribute('x1', xm);
+        line2.setAttribute('y1', ym);
+        line2.setAttribute('x2', x2);
+        line2.setAttribute('y2', y2);
+        line2.setAttribute('stroke', '#6366f1');
+        line2.setAttribute('stroke-width', '3');
+        line2.setAttribute('marker-end', `url(#${markerId})`);
+        line2.style.opacity = '0.7';
+        svg.appendChild(line2);
+      }
+    }
+    
+    // Add numbered points solo en puntos clave
+    puntosClave.forEach((punto) => {
+      const idx = punto.idx;
+      const pos = punto.pos;
+      const [row, col] = pos;
+      const cell = cellElements[row] && cellElements[row][col];
+      
+      if (!cell) return;
+      
+      const rect = cell.getBoundingClientRect();
+      
+      const x = rect.left - containerRect.left + rect.width / 2;
+      const y = rect.top - containerRect.top + rect.height / 2;
+      
+      // Outer circle background (white)
+      const outerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      outerCircle.setAttribute('cx', x);
+      outerCircle.setAttribute('cy', y);
+      outerCircle.setAttribute('r', '12');
+      outerCircle.setAttribute('fill', '#ffffff');
+      outerCircle.setAttribute('stroke', '#999999');
+      outerCircle.setAttribute('stroke-width', '2');
+      
+      svg.appendChild(outerCircle);
+      
+      // Inner colored circle
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('cx', x);
+      dot.setAttribute('cy', y);
+      dot.setAttribute('r', '8');
+      
+      let dotColor = '#6366f1';
+      if (punto.tipo === 'inicio') {
+        dotColor = '#10b981';
+      } else if (punto.tipo === 'final') {
+        dotColor = '#ef4444';
+      }
+      
+      dot.setAttribute('fill', dotColor);
+      dot.style.cursor = 'pointer';
+      dot.setAttribute('title', `Punto ${idx + 1}: (${row}, ${col})`);
+      
+      svg.appendChild(dot);
+      
+      // Number label
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', x);
+      text.setAttribute('y', y + 1);
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('dominant-baseline', 'central');
+      text.setAttribute('font-size', '13');
+      text.setAttribute('font-weight', 'bold');
+      text.setAttribute('fill', '#ffffff');
+      text.setAttribute('pointer-events', 'none');
+      text.textContent = idx + 1;
+      
+      svg.appendChild(text);
+    });
+    
+    container.appendChild(svg);
+  }, 50);
 }
 
 // Export to Excel

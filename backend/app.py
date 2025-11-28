@@ -4,7 +4,6 @@ from .robot import RobotAlmacen
 from .config import PAQUETES, INICIO, COSTO_CELDA, COSTO_PASILLO, PASILLOS, FILAS, COLUMNAS, ALMACENES
 from .entrada import GestorEntrada
 from .consolidador import ConsolidadorPicking
-from .conteo_ciclico import ConteoCiclico
 from .exportador import Exportador
 import io
 from fastapi.responses import StreamingResponse
@@ -83,72 +82,6 @@ def get_warehouse_config():
     }
 
 
-@app.post('/cycle-count')
-def cycle_count(payload: dict):
-    """Genera un plan de conteo cíclico priortizado.
-
-    Payload esperado:
-    {
-      "ubicaciones": [ {"fila": int, "col": int, "sku": str, "movimientos": int, "conteos_ultimos_365dias": int}, ... ],
-      "frecuencia_minima": 5  # opcional
-    }
-    """
-    data = payload or {}
-    ubicaciones = data.get('ubicaciones', [])
-    frecuencia = int(data.get('frecuencia_minima', 5))
-    # Heurísticas opcionales
-    weights = data.get('weights', None)  # {'faltantes':100, 'movimientos':1, 'criticidad':50}
-    zone_weights = data.get('zone_weights', None)  # {'Audio': 50, ...}
-
-    cc = ConteoCiclico(frecuencia_minima=frecuencia, weights=weights, zone_weights=zone_weights)
-    plan = cc.generar_plan(ubicaciones)
-    return plan
-
-
-@app.post('/export-cycle')
-def export_cycle(payload: dict):
-    """Exporta a Excel/CSV un `plan` (lista) o genera plan desde `ubicaciones` si se pasa.
-
-    Payload aceptado:
-      - plan: [...]
-    o
-      - ubicaciones + frecuencia_minima + weights + zone_weights
-    """
-    data = payload or {}
-    plan = data.get('plan')
-    if not plan:
-        # generar plan desde ubicaciones si vienen
-        ubicaciones = data.get('ubicaciones', [])
-        frecuencia = int(data.get('frecuencia_minima', 5))
-        weights = data.get('weights', None)
-        zone_weights = data.get('zone_weights', None)
-        cc = ConteoCiclico(frecuencia_minima=frecuencia, weights=weights, zone_weights=zone_weights)
-        plan = cc.generar_plan(ubicaciones).get('plan', [])
-
-    bytes_data = Exportador.export_cycle_plan_bytes(plan)
-
-    # Detectar si es CSV o Excel por contenido (naive): openpyxl produces XLSX binary with PK signature
-    filename = 'plan_conteo.xlsx'
-    media_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    try:
-        # If first bytes start with PK (zip), treat as xlsx
-        if isinstance(bytes_data, (bytes, bytearray)) and bytes_data[:2] != b'PK':
-            # likely CSV
-            filename = 'plan_conteo.csv'
-            media_type = 'text/csv'
-    except Exception:
-        pass
-
-    return StreamingResponse(io.BytesIO(bytes_data), media_type=media_type, headers={
-        'Content-Disposition': f'attachment; filename="{filename}"'
-    })
-
-
-if __name__ == '__main__':
-    import uvicorn
-    uvicorn.run(app, host='0.0.0.0', port=5000)
-
-
 @app.post('/export')
 def export_excel(payload: dict):
     """Genera un Excel desde la simulación y lo devuelve como descarga
@@ -178,3 +111,8 @@ def export_excel(payload: dict):
     except Exception as e:
         # si falla, devolver error
         return {'error': 'No se pudo generar Excel en el servidor', 'detail': str(e)}
+
+
+if __name__ == '__main__':
+    import uvicorn
+    uvicorn.run(app, host='0.0.0.0', port=5000)
